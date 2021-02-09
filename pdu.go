@@ -1,56 +1,73 @@
 package smpp
 
-command_id_by_hex = {
-'80000000': {'hex': '80000000', 'name': 'generic_nack'},
-'00000001': {'hex': '00000001', 'name': 'bind_receiver'},
-'80000001': {'hex': '80000001', 'name': 'bind_receiver_resp'},
-'00000002': {'hex': '00000002', 'name': 'bind_transmitter'},
-'80000002': {'hex': '80000002', 'name': 'bind_transmitter_resp'},
-'00000003': {'hex': '00000003', 'name': 'query_sm'},
-'80000003': {'hex': '80000003', 'name': 'query_sm_resp'},
-'00000004': {'hex': '00000004', 'name': 'submit_sm'},
-'80000004': {'hex': '80000004', 'name': 'submit_sm_resp'},
-'00000005': {'hex': '00000005', 'name': 'deliver_sm'},
-'80000005': {'hex': '80000005', 'name': 'deliver_sm_resp'},
-'00000006': {'hex': '00000006', 'name': 'unbind'},
-'80000006': {'hex': '80000006', 'name': 'unbind_resp'},
-'00000007': {'hex': '00000007', 'name': 'replace_sm'},
-'80000007': {'hex': '80000007', 'name': 'replace_sm_resp'},
-'00000008': {'hex': '00000008', 'name': 'cancel_sm'},
-'80000008': {'hex': '80000008', 'name': 'cancel_sm_resp'},
-'00000009': {'hex': '00000009', 'name': 'bind_transceiver'},
-'80000009': {'hex': '80000009', 'name': 'bind_transceiver_resp'},
-'0000000b': {'hex': '0000000b', 'name': 'outbind'},
-'00000015': {'hex': '00000015', 'name': 'enquire_link'},
-'80000015': {'hex': '80000015', 'name': 'enquire_link_resp'},
-'00000021': {'hex': '00000021', 'name': 'submit_multi'},
-'80000021': {'hex': '80000021', 'name': 'submit_multi_resp'},
-'00000102': {'hex': '00000102', 'name': 'alert_notification'},
-'00000103': {'hex': '00000103', 'name': 'data_sm'},
-'80000103': {'hex': '80000103', 'name': 'data_sm_resp'},
+import (
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+)
 
-# v4 codes
+type Header struct {
+	commandLength  int
+	commandId      string
+	commandStatus  string
+	sequenceNumber int
+}
 
-'80010000': {'hex': '80010000', 'name': 'generic_nack_v4'},
-'00010001': {'hex': '00010001', 'name': 'bind_receiver_v4'},
-'80010001': {'hex': '80010001', 'name': 'bind_receiver_resp_v4'},
-'00010002': {'hex': '00010002', 'name': 'bind_transmitter_v4'},
-'80010002': {'hex': '80010002', 'name': 'bind_transmitter_resp_v4'},
-'00010003': {'hex': '00010003', 'name': 'query_sm_v4'},
-'80010003': {'hex': '80010003', 'name': 'query_sm_resp_v4'},
-'00010004': {'hex': '00010004', 'name': 'submit_sm_v4'},
-'80010004': {'hex': '80010004', 'name': 'submit_sm_resp_v4'},
-'00010005': {'hex': '00010005', 'name': 'deliver_sm_v4'},
-'80010005': {'hex': '80010005', 'name': 'deliver_sm_resp_v4'},
-'00010006': {'hex': '00010006', 'name': 'unbind_v4'},
-'80010006': {'hex': '80010006', 'name': 'unbind_resp_v4'},
-'00010007': {'hex': '00010007', 'name': 'replace_sm_v4'},
-'80010007': {'hex': '80010007', 'name': 'replace_sm_resp_v4'},
-'00010008': {'hex': '00010008', 'name': 'cancel_sm_v4'},
-'80010008': {'hex': '80010008', 'name': 'cancel_sm_resp_v4'},
-'00010009': {'hex': '00010009', 'name': 'delivery_receipt_v4'},
-'80010009': {'hex': '80010009', 'name': 'delivery_receipt_resp_v4'},
-'0001000a': {'hex': '0001000a', 'name': 'enquire_link_v4'},
-'8001000a': {'hex': '8001000a', 'name': 'enquire_link_resp_v4'},
-'0001000b': {'hex': '0001000b', 'name': 'outbind_v4'},
+type PDU struct {
+	header Header
+}
+
+func ParsePdu(bytes []byte) (pdu PDU, err error) {
+	pdu, err3 := parseHeader(bytes)
+	return pdu, err3
+
+}
+
+func parseHeader(bytes []byte) (pdu PDU, err error) {
+	p, err := verifyLength(bytes, pdu)
+	if err != nil {
+		return p, err
+	}
+	commandId, err := extractCommandID(bytes)
+	if err != nil {
+		return p, err
+	}
+	commandStatus, err := extractCommandStatus(bytes)
+	pdu = PDU{
+		header: Header{
+			commandLength:  16,
+			commandId:      commandId,
+			commandStatus:  commandStatus,
+			sequenceNumber: 0,
+		},
+	}
+
+	return pdu, err
+
+}
+
+func extractCommandStatus(bytes []byte) (string, error) {
+	commandStatus := hex.EncodeToString(bytes[8:12])
+	if value, ok := commandStatusByHex[commandStatus]; ok {
+		return value["name"], nil
+	}
+	return "", fmt.Errorf("unknown command status %s", commandStatus)
+}
+
+func extractCommandID(bytes []byte) (string, error) {
+	commandId := hex.EncodeToString(bytes[4:8])
+	if value, ok := commandIdByHex[commandId]; ok {
+		return value["name"], nil
+	}
+	return "", fmt.Errorf("unknown command_id %s", commandId)
+}
+
+func verifyLength(fixture []byte, pdu PDU) (PDU, error) {
+	if len(fixture) > 3 {
+		pdu_length := int(binary.BigEndian.Uint32(fixture[0:4]))
+		if len(fixture) < pdu_length {
+			return pdu, fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(fixture))
+		}
+	}
+	return PDU{}, nil
 }
