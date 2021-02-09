@@ -26,16 +26,16 @@ func ParsePdu(bytes []byte) (pdu PDU, err error) {
 func parseHeader(bytes []byte) (pdu PDU, err error) {
 	p, err := verifyLength(bytes, pdu)
 	if err != nil {
-		return p, err
+		return pdu, err
 	}
 	commandId, err := extractCommandID(bytes)
 	if err != nil {
-		return p, err
+		return pdu, err
 	}
 	commandStatus, err := extractCommandStatus(bytes)
 	pdu = PDU{
 		header: Header{
-			commandLength:  16,
+			commandLength:  p,
 			commandId:      commandId,
 			commandStatus:  commandStatus,
 			sequenceNumber: 0,
@@ -62,12 +62,14 @@ func extractCommandID(bytes []byte) (string, error) {
 	return "", fmt.Errorf("unknown command_id %s", commandId)
 }
 
-func verifyLength(fixture []byte, pdu PDU) (PDU, error) {
+func verifyLength(fixture []byte, pdu PDU) (int, error) {
 	if len(fixture) > 3 {
 		pdu_length := int(binary.BigEndian.Uint32(fixture[0:4]))
 		if len(fixture) < pdu_length {
-			return pdu, fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(fixture))
+			return 0, fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(fixture))
 		}
+		return pdu_length, nil
 	}
-	return PDU{}, nil
+
+	return 0, fmt.Errorf("invalid length parameter")
 }

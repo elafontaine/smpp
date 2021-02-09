@@ -15,6 +15,7 @@ func Test(t *testing.T) {
 }
 
 var invalidPduLength, _ = hex.DecodeString("0000001000")
+var pduLengthMissing, _ = hex.DecodeString("000000")
 var invalidCommandId, _ = hex.DecodeString("00000010000011150000000000000000")
 var enquiryLinkFixture, _ = hex.DecodeString("00000010000000150000000000000000")
 var enquiryLinkRespFixture, _ = hex.DecodeString("00000010800000150000000000000000")
@@ -73,6 +74,12 @@ func TestInvalidPduThrowsRelevantErrors(t *testing.T) {
 func TestInvalidCommandIdThrowsRelevantErrors(t *testing.T) {
 	err := errors.New("unknown command_id 00001115")
 	if _, got := ParsePdu(invalidCommandId); got.Error() != err.Error() {
+		t.Errorf("didn't get expected error object : %v, to be %v", got, err)
+	}
+}
+func TestPduInvalidLengthThrowsRelevantErrors(t *testing.T) {
+	err := errors.New("invalid length parameter")
+	if _, got := ParsePdu(pduLengthMissing); got.Error() != err.Error() {
 		t.Errorf("didn't get expected error object : %v, to be %v", got, err)
 	}
 }
