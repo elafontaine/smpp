@@ -65,21 +65,26 @@ func TestBindTransmitterParsing(t *testing.T) {
 	}
 }
 
-func TestInvalidPduThrowsRelevantErrors(t *testing.T) {
-	err := errors.New("invalid PDU Length for pdu : 0000001000")
-	if _, got := ParsePdu(invalidPduLength); got.Error() != err.Error() {
-		t.Errorf("didn't get expected error object : %v, to be %v", got, err)
+func Test_parseHeader(t *testing.T) {
+	type args struct {
+		bytes []byte
 	}
-}
-func TestInvalidCommandIdThrowsRelevantErrors(t *testing.T) {
-	err := errors.New("unknown command_id 00001115")
-	if _, got := ParsePdu(invalidCommandId); got.Error() != err.Error() {
-		t.Errorf("didn't get expected error object : %v, to be %v", got, err)
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{"PduInvalidLength", args{bytes: pduLengthMissing}, errors.New("invalid length parameter")},
+		{"InvalidCommandId", args{bytes: invalidCommandId}, errors.New("unknown command_id 00001115")},
+		{"InvalidPdu", args{bytes: invalidPduLength}, errors.New("invalid PDU Length for pdu : 0000001000")},
 	}
-}
-func TestPduInvalidLengthThrowsRelevantErrors(t *testing.T) {
-	err := errors.New("invalid length parameter")
-	if _, got := ParsePdu(pduLengthMissing); got.Error() != err.Error() {
-		t.Errorf("didn't get expected error object : %v, to be %v", got, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parseHeader(tt.args.bytes)
+			if err.Error() != tt.wantErr.Error() {
+				t.Errorf("parseHeader() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
 	}
 }
