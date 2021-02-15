@@ -6,14 +6,6 @@ import (
 	"testing"
 )
 
-func Test(t *testing.T) {
-	command_id := "00000001"
-	expected_command := "bind_receiver"
-	if got := commandIdByHex[command_id]["name"]; got != expected_command {
-		t.Errorf("expected %v, to be %v", command_id, expected_command)
-	}
-}
-
 var invalidPduLength, _ = hex.DecodeString("0000001000")
 var pduLengthMissing, _ = hex.DecodeString("000000")
 var invalidCommandId, _ = hex.DecodeString("00000010000011150000000000000000")
@@ -22,45 +14,30 @@ var enquiryLinkRespFixture, _ = hex.DecodeString("000000108000001500000000000000
 var bindTransmitterFixture, _ = hex.DecodeString("0000001f000000020000000000000000746573740074657374000034000000")
 
 func TestEnquiryLinkParsing(t *testing.T) {
-	enquiryLinkObj := PDU{
-		header: Header{
-			16,
-			"enquire_link",
-			"ESME_ROK",
-			0,
-		},
+	enquiryLinkObjHeader := PDU{
+		header: Header{16, "enquire_link", "ESME_ROK", 0},
 	}
 
-	if got, _ := ParsePdu(enquiryLinkFixture); got != enquiryLinkObj {
-		t.Errorf("didn't get enquire_link object %v, to be %v", got, enquiryLinkObj)
+	if got, _ := parseHeader(enquiryLinkFixture); got != enquiryLinkObjHeader {
+		t.Errorf("didn't get enquire_link object %v, to be %v", got, enquiryLinkObjHeader)
 	}
 }
 
 func TestParsePduEnquiryLinkResp(t *testing.T) {
-	enquiryLinkRespObj := PDU{
-		header: Header{
-			16,
-			"enquire_link_resp",
-			"ESME_ROK",
-			0,
-		},
+	enquiryLinkRespObjHeader := PDU{
+		header: Header{16, "enquire_link_resp", "ESME_ROK", 0},
 	}
 
-	if got, _ := ParsePdu(enquiryLinkRespFixture); got != enquiryLinkRespObj {
-		t.Errorf("didn't get enquire_link_resp object %v, to be %v", got, enquiryLinkRespObj)
+	if got, _ := parseHeader(enquiryLinkRespFixture); got != enquiryLinkRespObjHeader {
+		t.Errorf("didn't get enquire_link_resp object %v, to be %v", got, enquiryLinkRespObjHeader)
 	}
 }
 
 func TestBindTransmitterParsing(t *testing.T) {
-	bindTransmitterObj := PDU{
-		header: Header{
-			commandLength:  31,
-			commandId:      "bind_transmitter",
-			commandStatus:  "ESME_ROK",
-			sequenceNumber: 0,
-		},
+	bindTransmitterObjHeader := PDU{
+		header: Header{commandLength: 31, commandId: "bind_transmitter", commandStatus: "ESME_ROK", sequenceNumber: 0},
 	}
-	if got, _ := ParsePdu(bindTransmitterFixture); got != bindTransmitterObj {
+	if got, _ := parseHeader(bindTransmitterFixture); got != bindTransmitterObjHeader {
 		t.Errorf("didn't get bind_transmitter object %v, to be %v", got, bindTransmitterFixture)
 	}
 }
