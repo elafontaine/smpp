@@ -1,75 +1,43 @@
 package smpp
 
 import (
-	"encoding/binary"
-	"encoding/hex"
-	"fmt"
+	"bufio"
+	"bytes"
 )
 
-type Header struct {
-	commandLength  int
-	commandId      string
-	commandStatus  string
-	sequenceNumber int
+type Body struct {
+	mandatoryParameter map[string]interface{}
 }
 
 type PDU struct {
 	header Header
+	body   Body
 }
 
 func ParsePdu(bytes []byte) (pdu PDU, err error) {
-	pdu, err3 := parseHeader(bytes)
+	header, err3 := parseHeader(bytes)
+	if err3 != nil {
+		return PDU{}, err3
+	}
+	body, _ := parseBody(header, bytes)
+	pdu = PDU{header: header, body: body}
 	return pdu, err3
-
 }
 
-func parseHeader(bytes []byte) (pdu PDU, err error) {
-	p, err := verifyLength(bytes, pdu)
-	if err != nil {
-		return pdu, err
-	}
-	commandId, err := extractCommandID(bytes)
-	if err != nil {
-		return pdu, err
-	}
-	commandStatus, err := extractCommandStatus(bytes)
-	pdu = PDU{
-		header: Header{
-			commandLength:  p,
-			commandId:      commandId,
-			commandStatus:  commandStatus,
-			sequenceNumber: 0,
-		},
-	}
+func parseBody(header Header, pdu_bytes []byte) (body Body, err error) {
+	r := bytes.NewReader(pdu_bytes[16:])
+	scan := bufio.NewReader(r)
+	body = Body{mandatoryParameter: map[string]interface{}{}}
+	for _, mandatory_params := range mandatory_parameter_lists[header.commandId] {
 
-	return pdu, err
-
-}
-
-func extractCommandStatus(bytes []byte) (string, error) {
-	commandStatus := hex.EncodeToString(bytes[8:12])
-	if value, ok := commandStatusByHex[commandStatus]; ok {
-		return value["name"], nil
-	}
-	return "", fmt.Errorf("unknown command status %s", commandStatus)
-}
-
-func extractCommandID(bytes []byte) (string, error) {
-	commandId := hex.EncodeToString(bytes[4:8])
-	if value, ok := commandIdByHex[commandId]; ok {
-		return value["name"], nil
-	}
-	return "", fmt.Errorf("unknown command_id %s", commandId)
-}
-
-func verifyLength(fixture []byte, pdu PDU) (int, error) {
-	if len(fixture) > 3 {
-		pdu_length := int(binary.BigEndian.Uint32(fixture[0:4]))
-		if len(fixture) < pdu_length {
-			return 0, fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(fixture))
+		if mandatory_params["type"].(string) == "string" {
+			currentBytes, _ := scan.ReadBytes(0)
+			body.mandatoryParameter[mandatory_params["name"].(string)] = string(currentBytes[:len(currentBytes)-1])
 		}
-		return pdu_length, nil
+		if mandatory_params["type"].(string) == "integer" || mandatory_params["type"].(string) == "hex" {
+			currentBytes, _ := scan.ReadByte()
+			body.mandatoryParameter[mandatory_params["name"].(string)] = int(currentBytes)
+		}
 	}
-
-	return 0, fmt.Errorf("invalid length parameter")
+	return body, err
 }
