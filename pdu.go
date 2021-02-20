@@ -28,7 +28,7 @@ func parseBody(header Header, pdu_bytes []byte) (body Body, err error) {
 	r := bytes.NewReader(pdu_bytes[16:])
 	scan := bufio.NewReader(r)
 	body = Body{mandatoryParameter: map[string]interface{}{}}
-	for _, mandatory_params := range mandatory_parameter_lists[header.commandId] {
+	for _, mandatory_params := range mandatoryParameterLists[header.commandId] {
 
 		if mandatory_params["type"].(string) == "string" {
 			currentBytes, _ := scan.ReadBytes(0)
