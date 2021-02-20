@@ -28,16 +28,22 @@ func parseBody(header Header, pdu_bytes []byte) (body Body, err error) {
 	r := bytes.NewReader(pdu_bytes[16:])
 	scan := bufio.NewReader(r)
 	body = Body{mandatoryParameter: map[string]interface{}{}}
+	body.mandatoryParameter = extractMandatoryParameters(header, scan)
+	return body, err
+}
+
+func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]interface{} {
+	mandatoryParameterMap := map[string]interface{}{}
 	for _, mandatory_params := range mandatoryParameterLists[header.commandId] {
 
 		if mandatory_params["type"].(string) == "string" {
 			currentBytes, _ := scan.ReadBytes(0)
-			body.mandatoryParameter[mandatory_params["name"].(string)] = string(currentBytes[:len(currentBytes)-1])
+			mandatoryParameterMap[mandatory_params["name"].(string)] = string(currentBytes[:len(currentBytes)-1])
 		}
 		if mandatory_params["type"].(string) == "integer" || mandatory_params["type"].(string) == "hex" {
 			currentBytes, _ := scan.ReadByte()
-			body.mandatoryParameter[mandatory_params["name"].(string)] = int(currentBytes)
+			mandatoryParameterMap[mandatory_params["name"].(string)] = int(currentBytes)
 		}
 	}
-	return body, err
+	return mandatoryParameterMap
 }
