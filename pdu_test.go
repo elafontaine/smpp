@@ -14,11 +14,13 @@ var enquiryLinkFixture, _ = hex.DecodeString("00000010000000150000000000000000")
 var enquiryLinkRespFixture, _ = hex.DecodeString("00000010800000150000000000000000")
 var bindTransmitterFixture, _ = hex.DecodeString("0000001f000000020000000000000000746573740074657374000034000000")
 var bindTransmitterRespFixture, _ = hex.DecodeString("000000158000000200000000000000007465737400")
+var submitSmRespFixture, _ = hex.DecodeString("000000128000000400000000000000033100")
 
 var enquiryLinkObjHeader = Header{commandLength: 16, commandId: "enquire_link", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var enquiryLinkRespObjHeader = Header{commandLength: 16, commandId: "enquire_link_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var bindTransmitterObjHeader = Header{commandLength: 31, commandId: "bind_transmitter", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var bindTransmitterRespObjHeader = Header{commandLength: 21, commandId: "bind_transmitter_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
+var submitSmRespObjHeader = Header{commandLength: 18, commandId: "submit_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
 
 var bindTransmitterObjBody = Body{
 	mandatoryParameter: map[string]interface{}{
@@ -31,15 +33,11 @@ var bindTransmitterObjBody = Body{
 		"address_range":     "",
 	},
 }
+var bindTransmitterRespObjBody = Body{mandatoryParameter: map[string]interface{}{"system_id": "test"}}
+var submitSmRespObjBody = Body{mandatoryParameter: map[string]interface{}{"message_id": "1"}}
 
-var bindTransmitterRespObjBody = Body{mandatoryParameter: map[string]interface{}{
-	"system_id": "test",
-}}
-
-var bindTransmitterObj = PDU{
-	header: bindTransmitterObjHeader,
-	body:   bindTransmitterObjBody,
-}
+var submitSmRespObj = PDU{header: submitSmRespObjHeader, body: submitSmRespObjBody}
+var bindTransmitterObj = PDU{header: bindTransmitterObjHeader, body: bindTransmitterObjBody}
 
 func Test_parseHeaders(t *testing.T) {
 	type args struct {
@@ -78,6 +76,7 @@ func Test_parsePduBody(t *testing.T) {
 	}{
 		{"parse_bind_transmitter", args{header: bindTransmitterObjHeader, bytes: bindTransmitterFixture}, bindTransmitterObjBody},
 		{"parse_bind_transmitter_resp", args{header: bindTransmitterRespObjHeader, bytes: bindTransmitterRespFixture}, bindTransmitterRespObjBody},
+		{"parse_submit_sm_resp", args{bytes: submitSmRespFixture, header: submitSmRespObjHeader}, submitSmRespObjBody},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -101,6 +100,7 @@ func Test_parsePdu(t *testing.T) {
 		wantPdu PDU
 	}{
 		{"parse_bind_transmitter", args{bytes: bindTransmitterFixture}, bindTransmitterObj},
+		{"parse_submit_sm_resp", args{bytes: submitSmRespFixture}, submitSmRespObj},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
