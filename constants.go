@@ -104,7 +104,6 @@ var commandStatusByHex = map[string]map[string]string{
 	"000000c4": {"hex": "000000c4", "name": "ESME_RINVOPTPARAMVAL", "description": "Invalid optional parameter value"},
 	"000000fe": {"hex": "000000fe", "name": "ESME_RDELIVERYFAILURE", "description": "Delivery Failure (used for data_sm_resp)"},
 	"000000ff": {"hex": "000000ff", "name": "ESME_RUNKNOWNERR", "description": "Unknown error"},
-	"0000041a": {"hex": "0000041a", "name": "AIRWIDE_BARRED_DEST", "description": "Subscriber not in LDAP"},
 }
 
 var mandatoryParameterLists = map[string][]map[string]interface{}{
