@@ -21,7 +21,7 @@ var enquiryLinkObjHeader = Header{commandLength: 16, commandId: "enquire_link", 
 var enquiryLinkRespObjHeader = Header{commandLength: 16, commandId: "enquire_link_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var bindTransmitterObjHeader = Header{commandLength: 31, commandId: "bind_transmitter", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var bindTransmitterRespObjHeader = Header{commandLength: 21, commandId: "bind_transmitter_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
-var submitSmRespObjHeader = Header{commandLength: 18, commandId: "submit_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
+var submitSmRespObjHeader = Header{commandLength: 18, commandId: "submit_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 3}
 var deliverSmRespObjHeader = Header{commandLength: 63, commandId: "deliver_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
 
 var bindTransmitterObjBody = Body{
@@ -69,6 +69,10 @@ var submitSmRespObj = PDU{header: submitSmRespObjHeader, body: submitSmRespObjBo
 var bindTransmitterObj = PDU{header: bindTransmitterObjHeader, body: bindTransmitterObjBody}
 var enquiryLinkObj = PDU{
 	header: enquiryLinkObjHeader,
+	body:   Body{mandatoryParameter: map[string]interface{}{}},
+}
+var enquiryLinkRespObj = PDU{
+	header: enquiryLinkRespObjHeader,
 	body:   Body{mandatoryParameter: map[string]interface{}{}},
 }
 
@@ -183,6 +187,8 @@ func TestEncodePdu(t *testing.T) {
 		wantPdu []byte
 	}{
 		{"encode enquiry object into bytes", args{pdu_obj: enquiryLinkObj}, enquiryLinkFixture},
+		{"encode enquiry resp object into bytes", args{pdu_obj: enquiryLinkRespObj}, enquiryLinkRespFixture},
+		{"parse_submit_sm_resp", args{pdu_obj: submitSmRespObj}, submitSmRespFixture},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

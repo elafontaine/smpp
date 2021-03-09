@@ -23,14 +23,23 @@ func parseHeader(bytes []byte) (header Header, err error) {
 		return header, err
 	}
 	commandStatus, err := extractCommandStatus(bytes)
+	if err != nil {
+		return header, err
+	}
+	sequenceNumber, err := extractSequenceNumber(bytes)
 	header = Header{
 		commandLength:  length,
 		commandId:      commandId,
 		commandStatus:  commandStatus,
-		sequenceNumber: 0,
+		sequenceNumber: sequenceNumber,
 	}
 	return header, err
 
+}
+
+func extractSequenceNumber(bytes []byte) (sequenceNumber int, err error) {
+	sequenceNumber = int(binary.BigEndian.Uint32(bytes[12:16]))
+	return sequenceNumber, err
 }
 
 func extractCommandStatus(bytes []byte) (string, error) {

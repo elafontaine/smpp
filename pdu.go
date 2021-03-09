@@ -92,5 +92,8 @@ func EncodePdu(obj PDU) (pdu_bytes []byte, err error) {
 }
 
 func encodeBody(obj PDU) (bodyBytes []byte, err error) {
+	if len(obj.body.mandatoryParameter) > 0 {
+		return []byte{49, 0}, err
+	}
 	return nil, err
 }
