@@ -60,3 +60,19 @@ func verifyLength(fixture []byte) (int, error) {
 
 	return 0, fmt.Errorf("invalid length parameter")
 }
+
+func encodeHeader(obj PDU, bodyBytes []byte) (headerBytes []byte, err error) {
+	headerBytes = []byte{}
+	commandIdBytes, _ := hex.DecodeString(commandIdByName[obj.header.commandId]["hex"])
+	headerBytes = append(headerBytes, commandIdBytes...)
+	commandStatusBytes, _ := hex.DecodeString(commandStatusByName[obj.header.commandStatus]["hex"])
+	headerBytes = append(headerBytes, commandStatusBytes...)
+	sequence_number_buffer := make([]byte, 4)
+	binary.BigEndian.PutUint32(sequence_number_buffer, uint32(obj.header.sequenceNumber))
+	headerBytes = append(headerBytes, sequence_number_buffer...)
+	length := len(bodyBytes) + 16
+	lengthBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(lengthBytes, uint32(length))
+	headerBytes = append(lengthBytes, headerBytes...)
+	return headerBytes, err
+}

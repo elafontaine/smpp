@@ -67,6 +67,10 @@ var deliverSmObjBody = Body{
 
 var submitSmRespObj = PDU{header: submitSmRespObjHeader, body: submitSmRespObjBody}
 var bindTransmitterObj = PDU{header: bindTransmitterObjHeader, body: bindTransmitterObjBody}
+var enquiryLinkObj = PDU{
+	header: enquiryLinkObjHeader,
+	body:   Body{mandatoryParameter: map[string]interface{}{}},
+}
 
 func Test_parseHeaders(t *testing.T) {
 	type args struct {
@@ -131,6 +135,7 @@ func Test_parsePdu(t *testing.T) {
 	}{
 		{"parse_bind_transmitter", args{bytes: bindTransmitterFixture}, bindTransmitterObj},
 		{"parse_submit_sm_resp", args{bytes: submitSmRespFixture}, submitSmRespObj},
+		{"parse_enquire_link", args{bytes: enquiryLinkFixture}, enquiryLinkObj},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -162,6 +167,29 @@ func Test_parseHeaderInvalidPdu(t *testing.T) {
 			_, err := parseHeader(tt.args.bytes)
 			if err.Error() != tt.wantErr.Error() {
 				t.Errorf("parseHeader() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
+
+func TestEncodePdu(t *testing.T) {
+	type args struct {
+		pdu_obj PDU
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantPdu []byte
+	}{
+		{"encode enquiry object into bytes", args{pdu_obj: enquiryLinkObj}, enquiryLinkFixture},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := EncodePdu(tt.args.pdu_obj)
+			eq := reflect.DeepEqual(got, tt.wantPdu)
+			if !eq {
+				t.Errorf("EncodePdu() got = %v, wantPdu %v", got, tt.wantPdu)
 				return
 			}
 		})
