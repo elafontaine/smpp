@@ -189,6 +189,7 @@ func TestEncodePdu(t *testing.T) {
 		{"encode enquiry object into bytes", args{pdu_obj: enquiryLinkObj}, enquiryLinkFixture},
 		{"encode enquiry resp object into bytes", args{pdu_obj: enquiryLinkRespObj}, enquiryLinkRespFixture},
 		{"parse_submit_sm_resp", args{pdu_obj: submitSmRespObj}, submitSmRespFixture},
+		{"bind_transmitter object into bytes", args{pdu_obj: bindTransmitterObj}, bindTransmitterFixture},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -3,6 +3,7 @@ package smpp
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"io"
 	"log"
 )
@@ -93,7 +94,23 @@ func EncodePdu(obj PDU) (pdu_bytes []byte, err error) {
 
 func encodeBody(obj PDU) (bodyBytes []byte, err error) {
 	if len(obj.body.mandatoryParameter) > 0 {
-		return []byte{49, 0}, err
+		mandatoryParamsBytes, err := encodeMandatoryParameters(obj)
+		return mandatoryParamsBytes, err
 	}
 	return nil, err
+}
+
+func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
+	for _, mandatoryParam := range mandatoryParameterLists[obj.header.commandId] {
+		if mandatoryParam["type"].(string) == "string" {
+			fieldBytes := []byte(obj.body.mandatoryParameter[mandatoryParam["name"].(string)].(string))
+			bodyBytes = append(bodyBytes, append(fieldBytes, 0)...)
+		}
+		if mandatoryParam["type"].(string) == "integer" || mandatoryParam["type"].(string) == "hex" {
+			integerBuffer := make([]byte, mandatoryParam["max"].(int))
+			binary.PutUvarint(integerBuffer, uint64(obj.body.mandatoryParameter[mandatoryParam["name"].(string)].(int)))
+			bodyBytes = append(bodyBytes, integerBuffer...)
+		}
+	}
+	return bodyBytes, err
 }
