@@ -1,6 +1,8 @@
 SMPP (a golang library)
 =======================
 
+[![codecov](https://codecov.io/gh/elafontaine/smpp/branch/master/graph/badge.svg?token=5A5N54FX17)](https://codecov.io/gh/elafontaine/smpp)
+
 Why another ?
 -------------
 Because I believe doing something using basic types is easier on people to understand.  Having to use Specific types for 
