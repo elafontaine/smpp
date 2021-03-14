@@ -17,12 +17,16 @@ var bindTransmitterRespFixture, _ = hex.DecodeString("00000015800000020000000000
 var submitSmRespFixture, _ = hex.DecodeString("000000128000000400000000000000033100")
 var deliverSmOptionsFixture, _ = hex.DecodeString("0000003f000000050000000000000001000000000000353134393432363635300004000000000000000000001e000631313130370004270001020425000100")
 
+var optionalParameterReceiptMessageIdBytes, _ = hex.DecodeString("001e0006313131303700")
+var optionalParameterMessageStateBytes, _ = hex.DecodeString("0427000102")
+var optionalParameterDeliveryFailureReasonBytes, _ = hex.DecodeString("0425000100")
+
 var enquiryLinkObjHeader = Header{commandLength: 16, commandId: "enquire_link", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var enquiryLinkRespObjHeader = Header{commandLength: 16, commandId: "enquire_link_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var bindTransmitterObjHeader = Header{commandLength: 31, commandId: "bind_transmitter", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var bindTransmitterRespObjHeader = Header{commandLength: 21, commandId: "bind_transmitter_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var submitSmRespObjHeader = Header{commandLength: 18, commandId: "submit_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 3}
-var deliverSmRespObjHeader = Header{commandLength: 63, commandId: "deliver_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
+var deliverSmObjHeader = Header{commandLength: 63, commandId: "deliver_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
 
 var bindTransmitterObjBody = Body{
 	mandatoryParameter: map[string]interface{}{
@@ -37,6 +41,10 @@ var bindTransmitterObjBody = Body{
 }
 var bindTransmitterRespObjBody = Body{mandatoryParameter: map[string]interface{}{"system_id": "test"}}
 var submitSmRespObjBody = Body{mandatoryParameter: map[string]interface{}{"message_id": "1"}}
+var optionalReceiptMessageID = map[string]interface{}{"tag": "receipted_message_id", "length": 6, "value": "11107"}
+var optionalMessageState = map[string]interface{}{"tag": "message_state", "length": 1, "value": 2}
+var optionalDeliveryFailureReason = map[string]interface{}{"tag": "delivery_failure_reason", "length": 1, "value": 0}
+
 var deliverSmObjBody = Body{
 	mandatoryParameter: map[string]interface{}{
 		"service_type":            "",
@@ -59,14 +67,18 @@ var deliverSmObjBody = Body{
 		"short_message":           "",
 	},
 	optionalParameters: []map[string]interface{}{
-		{"tag": "receipted_message_id", "length": 6, "value": "11107"},
-		{"tag": "message_state", "length": 1, "value": 2},
-		{"tag": "delivery_failure_reason", "length": 1, "value": 0},
+		optionalReceiptMessageID,
+		optionalMessageState,
+		optionalDeliveryFailureReason,
 	},
 }
-
 var submitSmRespObj = PDU{header: submitSmRespObjHeader, body: submitSmRespObjBody}
+var deliverSmObj = PDU{
+	header: deliverSmObjHeader,
+	body:   deliverSmObjBody,
+}
 var bindTransmitterObj = PDU{header: bindTransmitterObjHeader, body: bindTransmitterObjBody}
+var bindTransmitterRespObj = PDU{header: bindTransmitterRespObjHeader, body: bindTransmitterRespObjBody}
 var enquiryLinkObj = PDU{
 	header: enquiryLinkObjHeader,
 	body:   Body{mandatoryParameter: map[string]interface{}{}},
@@ -114,7 +126,7 @@ func Test_parsePduBody(t *testing.T) {
 		{"parse_bind_transmitter", args{header: bindTransmitterObjHeader, bytes: bindTransmitterFixture}, bindTransmitterObjBody},
 		{"parse_bind_transmitter_resp", args{header: bindTransmitterRespObjHeader, bytes: bindTransmitterRespFixture}, bindTransmitterRespObjBody},
 		{"parse_submit_sm_resp", args{bytes: submitSmRespFixture, header: submitSmRespObjHeader}, submitSmRespObjBody},
-		{"parse_deliver_sm_with_options", args{bytes: deliverSmOptionsFixture, header: deliverSmRespObjHeader}, deliverSmObjBody},
+		{"parse_deliver_sm_with_options", args{bytes: deliverSmOptionsFixture, header: deliverSmObjHeader}, deliverSmObjBody},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -190,6 +202,8 @@ func TestEncodePdu(t *testing.T) {
 		{"encode enquiry resp object into bytes", args{pdu_obj: enquiryLinkRespObj}, enquiryLinkRespFixture},
 		{"parse_submit_sm_resp", args{pdu_obj: submitSmRespObj}, submitSmRespFixture},
 		{"bind_transmitter object into bytes", args{pdu_obj: bindTransmitterObj}, bindTransmitterFixture},
+		{"bind_transmitter_resp object into bytes", args{pdu_obj: bindTransmitterRespObj}, bindTransmitterRespFixture},
+		{"deliver_sm object with optional parameter into bytes", args{pdu_obj: deliverSmObj}, deliverSmOptionsFixture},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -198,6 +212,34 @@ func TestEncodePdu(t *testing.T) {
 			if !eq {
 				t.Errorf("EncodePdu() got = %v, wantPdu %v", got, tt.wantPdu)
 				return
+			}
+		})
+	}
+}
+
+func Test_encodeSpecificOptionalParameter(t *testing.T) {
+	type args struct {
+		optionalParam map[string]interface{}
+	}
+	tests := []struct {
+		name                    string
+		args                    args
+		wantOptionalParamsBytes []byte
+		wantErr                 bool
+	}{
+		{"Encode message state optional parameter", args{optionalParam: optionalMessageState}, optionalParameterMessageStateBytes, false},
+		{"Encode delivery failure reason optional parameter", args{optionalParam: optionalDeliveryFailureReason}, optionalParameterDeliveryFailureReasonBytes, false},
+		{"Encode receipt message ID optional parameter", args{optionalParam: optionalReceiptMessageID}, optionalParameterReceiptMessageIdBytes, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotOptionalParamsBytes, err := encodeSpecificOptionalParameter(tt.args.optionalParam)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("encodeSpecificOptionalParameter() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotOptionalParamsBytes, tt.wantOptionalParamsBytes) {
+				t.Errorf("encodeSpecificOptionalParameter() gotOptionalParamsBytes = %v, want %v", gotOptionalParamsBytes, tt.wantOptionalParamsBytes)
 			}
 		})
 	}

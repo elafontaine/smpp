@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"io"
 	"log"
 )
@@ -93,11 +94,55 @@ func EncodePdu(obj PDU) (pdu_bytes []byte, err error) {
 }
 
 func encodeBody(obj PDU) (bodyBytes []byte, err error) {
+	var mandatoryParamsBytes []byte
+	var optionalParamsBytes []byte
 	if len(obj.body.mandatoryParameter) > 0 {
-		mandatoryParamsBytes, err := encodeMandatoryParameters(obj)
-		return mandatoryParamsBytes, err
+		mandatoryParamsBytes, err = encodeMandatoryParameters(obj)
+		bodyBytes = append(bodyBytes, mandatoryParamsBytes...)
 	}
-	return nil, err
+	if len(obj.body.optionalParameters) > 0 {
+		optionalParamsBytes, err = encodeOptionalParameters(obj)
+		bodyBytes = append(bodyBytes, optionalParamsBytes...)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return bodyBytes, err
+}
+
+func encodeOptionalParameters(obj PDU) (optionalParamsBytes []byte, err error) {
+	for _, optionalParam := range obj.body.optionalParameters {
+		specificOptionalParamsBytes, _ := encodeSpecificOptionalParameter(optionalParam)
+		optionalParamsBytes = append(optionalParamsBytes, specificOptionalParamsBytes...)
+
+	}
+	return optionalParamsBytes, err
+}
+
+func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) (optionalParamsBytes []byte, err error) {
+	parameterDefinitions := optionalParameterTagByName[optionalParam["tag"].(string)]
+	var tag []byte
+	tag, err = hex.DecodeString(parameterDefinitions["hex"].(string))
+	lengthBuffer := make([]byte, 2)
+	if parameterDefinitions["type"] == "integer" || parameterDefinitions["type"] == "hex" {
+		//integerBuffer := []byte
+		//binary.PutUvarint(integerBuffer, uint64(optionalParam["value"].(int)))
+		integerByte := byte(int64(optionalParam["value"].(int)))
+		//integerBuffer,_ = tlv.Marshal(uint64(optionalParam["value"].(int)),math.MaxUint32)
+		binary.BigEndian.PutUint16(lengthBuffer, uint16(1))
+		optionalParamsBytes = append(optionalParamsBytes, tag...)
+		optionalParamsBytes = append(optionalParamsBytes, lengthBuffer...)
+		optionalParamsBytes = append(optionalParamsBytes, integerByte)
+
+	}
+	if parameterDefinitions["type"] == "string" {
+		fieldBytes := []byte(optionalParam["value"].(string))
+		binary.BigEndian.PutUint16(lengthBuffer, uint16(len(fieldBytes)+1))
+		optionalParamsBytes = append(optionalParamsBytes, tag...)
+		optionalParamsBytes = append(optionalParamsBytes, lengthBuffer...)
+		optionalParamsBytes = append(optionalParamsBytes, append(fieldBytes, 0)...)
+	}
+	return optionalParamsBytes, err
 }
 
 func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
