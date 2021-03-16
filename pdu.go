@@ -37,20 +37,50 @@ func parseBody(header Header, pdu_bytes []byte) (body Body, err error) {
 	scan := bufio.NewReader(r)
 	body = Body{mandatoryParameter: map[string]interface{}{}}
 	body.mandatoryParameter = extractMandatoryParameters(header, scan)
-	bytesLeft := scan.Buffered()
+	var optionalParameterBytes []byte
+	optionalParameterBytes = make([]byte, scan.Buffered())
+	bytesLeft, err := io.ReadFull(scan, optionalParameterBytes)
 	if bytesLeft > 0 {
-		body.optionalParameters = extractOptionalParameters(header, scan)
+		body.optionalParameters = extractOptionalParameters(optionalParameterBytes)
 	}
 	return body, err
 }
 
-func extractOptionalParameters(header Header, scan *bufio.Reader) []map[string]interface{} {
-	params := []map[string]interface{}{
-		{"tag": "receipted_message_id", "length": 6, "value": "11107"},
-		{"tag": "message_state", "length": 1, "value": 2},
-		{"tag": "delivery_failure_reason", "length": 1, "value": 0},
+func extractOptionalParameters(optionalParameterBytes []byte) (params []map[string]interface{}) {
+	for i := 0; i < len(optionalParameterBytes); i++ {
+		param, _ := extractSpecificOptionalParameter(optionalParameterBytes[i:])
+		params = append(params, param)
+		i += incrementBasedOnTlv(param)
 	}
 	return params
+}
+
+func incrementBasedOnTlv(param map[string]interface{}) int {
+	return 2 + 2 + param["length"].(int) - 1 // tag (2) + length  (2) + value (value of length) - 1 (as we have post-increments)
+}
+
+func extractSpecificOptionalParameter(parameterBytes []byte) (nbOfBytes map[string]interface{}, err error) {
+	identityTag := optionalParameterTagByHex[hex.EncodeToString(parameterBytes[0:2])]
+	tag := identityTag["name"]
+	length := int(binary.BigEndian.Uint16(parameterBytes[2:4]))
+	var value interface{}
+	if identityTag["type"] == "string" {
+		lastBytePosition := length + 4
+		lastByteIsNulByte := byte(0) == parameterBytes[lastBytePosition-1]
+		if lastByteIsNulByte {
+			value = string(parameterBytes[4 : lastBytePosition-1])
+		} else {
+			value = string(parameterBytes[4:lastBytePosition])
+		}
+	}
+	if identityTag["type"] == "integer" {
+		value = int(parameterBytes[4])
+	}
+	return map[string]interface{}{
+		"tag":    tag,
+		"length": length,
+		"value":  value,
+	}, err
 }
 
 func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]interface{} {

@@ -244,3 +244,25 @@ func Test_encodeSpecificOptionalParameter(t *testing.T) {
 		})
 	}
 }
+
+func Test_extractOptionalParameters(t *testing.T) {
+	type args struct {
+		optionalParameterBytes []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]interface{}
+	}{
+		{"Decode message state", args{optionalParameterBytes: optionalParameterMessageStateBytes}, optionalMessageState},
+		{"Decode ReceiptMessageId", args{optionalParameterBytes: optionalParameterReceiptMessageIdBytes}, optionalReceiptMessageID},
+		{"Decode DeliveryFailureReason", args{optionalParameterBytes: optionalParameterDeliveryFailureReasonBytes}, optionalDeliveryFailureReason},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, _ := extractSpecificOptionalParameter(tt.args.optionalParameterBytes); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("extractOptionalParameters() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
