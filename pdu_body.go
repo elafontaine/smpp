@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 )
@@ -95,10 +97,10 @@ func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]in
 func encodeBody(obj PDU) (bodyBytes []byte, err error) {
 	var mandatoryParamsBytes []byte
 	var optionalParamsBytes []byte
-	if len(obj.body.mandatoryParameter) > 0 {
-		mandatoryParamsBytes, err = encodeMandatoryParameters(obj)
-		bodyBytes = append(bodyBytes, mandatoryParamsBytes...)
-	}
+
+	mandatoryParamsBytes, err = encodeMandatoryParameters(obj)
+	bodyBytes = append(bodyBytes, mandatoryParamsBytes...)
+
 	if len(obj.body.optionalParameters) > 0 {
 		optionalParamsBytes, err = encodeOptionalParameters(obj)
 		bodyBytes = append(bodyBytes, optionalParamsBytes...)
@@ -124,10 +126,7 @@ func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) (opti
 	tag, err = hex.DecodeString(parameterDefinitions["hex"].(string))
 	lengthBuffer := make([]byte, 2)
 	if parameterDefinitions["type"] == "integer" || parameterDefinitions["type"] == "hex" {
-		//integerBuffer := []byte
-		//binary.PutUvarint(integerBuffer, uint64(optionalParam["value"].(int)))
 		integerByte := byte(int64(optionalParam["value"].(int)))
-		//integerBuffer,_ = tlv.Marshal(uint64(optionalParam["value"].(int)),math.MaxUint32)
 		binary.BigEndian.PutUint16(lengthBuffer, uint16(1))
 		optionalParamsBytes = append(optionalParamsBytes, tag...)
 		optionalParamsBytes = append(optionalParamsBytes, lengthBuffer...)
@@ -146,14 +145,25 @@ func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) (opti
 
 func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 	for _, mandatoryParam := range mandatoryParameterLists[obj.header.commandId] {
-		if mandatoryParam["type"].(string) == "string" {
-			fieldBytes := []byte(obj.body.mandatoryParameter[mandatoryParam["name"].(string)].(string))
-			bodyBytes = append(bodyBytes, append(fieldBytes, 0)...)
-		}
-		if mandatoryParam["type"].(string) == "integer" || mandatoryParam["type"].(string) == "hex" {
-			integerBuffer := make([]byte, mandatoryParam["max"].(int))
-			binary.PutUvarint(integerBuffer, uint64(obj.body.mandatoryParameter[mandatoryParam["name"].(string)].(int)))
-			bodyBytes = append(bodyBytes, integerBuffer...)
+		value, ok := obj.body.mandatoryParameter[mandatoryParam["name"].(string)]
+		if ok {
+			if mandatoryParam["type"].(string) == "string" {
+				fieldBytes := []byte(value.(string))
+				bodyBytes = append(bodyBytes, append(fieldBytes, 0)...)
+			}
+
+			if mandatoryParam["type"].(string) == "integer" || mandatoryParam["type"].(string) == "hex" {
+				integerBuffer := make([]byte, mandatoryParam["max"].(int))
+				binary.PutUvarint(integerBuffer, uint64(obj.body.mandatoryParameter[mandatoryParam["name"].(string)].(int)))
+				bodyBytes = append(bodyBytes, integerBuffer...)
+			}
+		} else {
+			err = errors.New(
+				fmt.Sprintf(
+					"%v of submit_sm pdu missing, can't encode", mandatoryParam["name"].(string),
+				),
+			)
+			return nil, err
 		}
 	}
 	return bodyBytes, err

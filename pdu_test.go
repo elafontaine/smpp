@@ -88,6 +88,28 @@ var enquiryLinkRespObj = PDU{
 	body:   Body{mandatoryParameter: map[string]interface{}{}},
 }
 
+var missingBodySubmitSMPdu = PDU{
+	header: Header{
+		sequenceNumber: 1,
+		commandId:      "submit_sm",
+		commandStatus:  "ESME_OK",
+		commandLength:  0,
+	},
+	body: Body{},
+}
+var missingBodySubmitSMPduButWithServiceType = PDU{
+	header: Header{
+		sequenceNumber: 1,
+		commandId:      "submit_sm",
+		commandStatus:  "ESME_OK",
+		commandLength:  0,
+	},
+	body: Body{mandatoryParameter: map[string]interface{}{
+		"service_type": "",
+	},
+	},
+}
+
 func Test_parseHeaders(t *testing.T) {
 	type args struct {
 		bytes []byte
@@ -262,6 +284,51 @@ func Test_extractOptionalParameters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got, _ := extractSpecificOptionalParameter(tt.args.optionalParameterBytes); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("extractOptionalParameters() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInvalidPduEncodingCases(t *testing.T) {
+	type args struct {
+		pdu_obj PDU
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
+		{"missingBodySubmitSMPduButWithServiceType raise mandatory fields are missings", args{missingBodySubmitSMPduButWithServiceType}, errors.New("source_addr_ton of submit_sm pdu missing, can't encode")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := EncodePdu(tt.args.pdu_obj)
+			if err.Error() != tt.wantErr.Error() {
+				t.Errorf("parseHeader() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
+
+func TestInvalidPduEncodingCasesBody(t *testing.T) {
+	type args struct {
+		pdu_obj PDU
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := encodeBody(tt.args.pdu_obj)
+			if err.Error() != tt.wantErr.Error() {
+				t.Errorf("parseHeader() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 		})
 	}
