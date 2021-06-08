@@ -18,7 +18,6 @@ func ParsePdu(bytes []byte) (pdu PDU, err error) {
 }
 
 // Encoding functions, only EncodePdu should be public
-
 func EncodePdu(obj PDU) (pdu_bytes []byte, err error) {
 	bodyBytes, err := encodeBody(obj)
 	if err != nil {
