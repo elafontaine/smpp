@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestNewBindTransmitter(t *testing.T) {
+func TestDefaultValueForNewBindTransmitter(t *testing.T) {
 
 	defaultBindTransmitter := &PDU{
 		header: Header{
