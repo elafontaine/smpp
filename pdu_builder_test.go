@@ -35,17 +35,6 @@ func TestDefaultValueForNewBindTransmitter(t *testing.T) {
 	})
 }
 
-func TestBindTransmitterToPdu(t *testing.T) {
-	bindTransmiter := NewBindTransmitter().WithSystemId("test").WithPassword("test")
-	binaryPdu, _ := EncodePdu(bindTransmiter)
-	bindTransmiter.header.commandLength = len(binaryPdu)
-	t.Run("Constructor pattern for binds", func(t *testing.T) {
-		if got := bindTransmiter; !reflect.DeepEqual(got, bindTransmitterObj) {
-			t.Errorf("The constructor pattern isn't creating expected PDU object! %v, want %v", got, bindTransmitterObj)
-		}
-	})
-}
-
 func TestDefaultValueForNewBindReceiver(t *testing.T) {
 
 	defaultBindReceiver := &PDU{
@@ -80,6 +69,29 @@ func TestDefaultValueForNewBindTransceiver(t *testing.T) {
 	t.Run("instantiating bind_transceiver", func(t *testing.T) {
 		if got := NewBindTransceiver(); !reflect.DeepEqual(got, defaultBindTransceiver) {
 			t.Errorf("NewBindTransceiver() = %v, want %v", got, defaultBindTransceiver)
+		}
+	})
+}
+
+func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
+	expectedBindTransmitterObj := bindTransmitterObj
+	expectedBindTransmitterObj.body = defaultBindBody()
+	expectedBindTransmitterObj.body.mandatoryParameter["address_range"] = "44601"
+	expectedBindTransmitterObj.body.mandatoryParameter["system_type"] = "VMS"
+	expectedBindTransmitterObj.body.mandatoryParameter["password"] = "test"
+	expectedBindTransmitterObj.body.mandatoryParameter["system_id"] = "test"
+	expectedBindTransmitterObj.header.commandLength = 39
+	bindTransmiter := NewBindTransmitter().
+		WithSystemId("test").
+		WithPassword("test").
+		WithAddressRange("44601").
+		WithSystemType("VMS")
+	binaryPdu, _ := EncodePdu(bindTransmiter)
+	bindTransmiter.header.commandLength = len(binaryPdu)
+
+	t.Run("Constructor pattern for binds", func(t *testing.T) {
+		if got := bindTransmiter; !reflect.DeepEqual(got, expectedBindTransmitterObj) {
+			t.Errorf("The constructor pattern isn't creating expected PDU object! %v, want %v", got, expectedBindTransmitterObj)
 		}
 	})
 }

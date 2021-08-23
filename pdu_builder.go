@@ -24,9 +24,9 @@ func NewBindReceiver() *PDU {
 
 func NewBindTransceiver() *PDU {
 	header := Header{
-		commandLength: 0,
-		commandId: "bind_transceiver",
-		commandStatus: "ESME_ROK",
+		commandLength:  0,
+		commandId:      "bind_transceiver",
+		commandStatus:  "ESME_ROK",
 		sequenceNumber: 0,
 	}
 	body := defaultBindBody()
@@ -43,6 +43,15 @@ func (p PDU) WithPassword(s string) PDU {
 	return p
 }
 
+func (p PDU) WithAddressRange(s string) PDU {
+	p.body.mandatoryParameter["address_range"] = s
+	return p
+}
+
+func (p PDU) WithSystemType(s string) PDU {
+	p.body.mandatoryParameter["system_type"] = s
+	return p
+}
 
 func defaultBindBody() Body {
 	body := Body{
