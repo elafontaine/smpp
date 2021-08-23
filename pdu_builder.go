@@ -53,6 +53,20 @@ func (p PDU) WithSystemType(s string) PDU {
 	return p
 }
 
+func (p PDU) WithInterfaceVersion(i int) PDU {
+	p.body.mandatoryParameter["interface_version"] = i
+	return p
+}
+
+func (p PDU) WithAddressNpi(i int) PDU {
+	p.body.mandatoryParameter["addr_npi"] = i
+	return p
+}
+func (p PDU) WithAddressTon(i int) PDU {
+	p.body.mandatoryParameter["addr_ton"] = i
+	return p
+}
+
 func defaultBindBody() Body {
 	body := Body{
 		mandatoryParameter: map[string]interface{}{

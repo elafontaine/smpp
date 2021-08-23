@@ -80,12 +80,18 @@ func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
 	expectedBindTransmitterObj.body.mandatoryParameter["system_type"] = "VMS"
 	expectedBindTransmitterObj.body.mandatoryParameter["password"] = "test"
 	expectedBindTransmitterObj.body.mandatoryParameter["system_id"] = "test"
+	expectedBindTransmitterObj.body.mandatoryParameter["interface_version"] = 34
+	expectedBindTransmitterObj.body.mandatoryParameter["addr_ton"] = 2
+	expectedBindTransmitterObj.body.mandatoryParameter["addr_npi"] = 1
 	expectedBindTransmitterObj.header.commandLength = 39
 	bindTransmiter := NewBindTransmitter().
 		WithSystemId("test").
 		WithPassword("test").
 		WithAddressRange("44601").
-		WithSystemType("VMS")
+		WithSystemType("VMS").
+		WithInterfaceVersion(34).
+		WithAddressTon(2).
+		WithAddressNpi(1)
 	binaryPdu, _ := EncodePdu(bindTransmiter)
 	bindTransmiter.header.commandLength = len(binaryPdu)
 
