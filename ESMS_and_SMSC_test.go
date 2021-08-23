@@ -2,7 +2,6 @@ package smpp
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 	"testing"
@@ -17,11 +16,14 @@ const (
 
 func TestServerInstantiationAndConnectClient(t *testing.T) {
 	serverSocket, err := net.Listen(connType, connhost+":"+connport)
+	if err != nil {
+		t.Errorf("couldn't start listening socket: %v", err)
+	}
 	smsc, err := StartSmscSimulatorServer(serverSocket)
-	defer smsc.Close()
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
 	}
+	defer smsc.Close()
 
 	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr())
 	if err != nil {
@@ -63,6 +65,9 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 		t.Errorf("Couldn't get the bytes out of the PDU: %s", err)
 	}
 	_, err = Esme.clientSocket.Write(expectedBytes)
+	if err != nil {
+		t.Errorf("Couldn't write to the socket PDU: %s", err)
+	}
 	readBuf, err := AcceptNewConnectionAndReadFromSMSC(smsc)
 	if err != nil {
 		t.Errorf("Couldn't read on a newly established Connection: %v", err)
@@ -75,7 +80,7 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 func AcceptNewConnectionAndReadFromSMSC(smsc SMSC) (readBuf []byte, err error) {
 	serverConnectionSocket, err := smsc.listeningSocket.Accept()
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Couldn't establish connection on the server side successfully: %v", err))
+		err = fmt.Errorf("Couldn't establish connection on the server side successfully: %v", err)
 		return nil, err
 	}
 	readBuf = make([]byte, 4096)

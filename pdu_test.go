@@ -15,7 +15,7 @@ var enquiryLinkRespFixture, _ = hex.DecodeString("000000108000001500000000000000
 var bindTransmitterFixture, _ = hex.DecodeString("0000001f000000020000000000000000746573740074657374000034000000")
 var bindTransmitterRespFixture, _ = hex.DecodeString("000000158000000200000000000000007465737400")
 var submitSmRespFixture, _ = hex.DecodeString("000000128000000400000000000000033100")
-var deliverSmOptionsFixture, _ = hex.DecodeString("0000003f000000050000000000000001000000000000353134393432363635300004000000000000000000001e000631313130370004270001020425000100")
+var deliverSmOptionsFixture, _ = hex.DecodeString("0000003f000000050000000000000001000000000000353535353535313233340004000000000000000000001e000631313130370004270001020425000100")
 
 var optionalParameterReceiptMessageIdBytes, _ = hex.DecodeString("001e0006313131303700")
 var optionalParameterMessageStateBytes, _ = hex.DecodeString("0427000102")
@@ -53,7 +53,7 @@ var deliverSmObjBody = Body{
 		"source_addr":             "",
 		"dest_addr_ton":           0,
 		"dest_addr_npi":           0,
-		"destination_addr":        "5149426650",
+		"destination_addr":        "5555551234",
 		"esm_class":               4,
 		"protocol_id":             0,
 		"priority_flag":           0,

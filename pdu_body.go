@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -158,11 +157,7 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 				bodyBytes = append(bodyBytes, integerBuffer...)
 			}
 		} else {
-			err = errors.New(
-				fmt.Sprintf(
-					"%v of submit_sm pdu missing, can't encode", mandatoryParam["name"].(string),
-				),
-			)
+			err = fmt.Errorf("%v of submit_sm pdu missing, can't encode", mandatoryParam["name"].(string))
 			return nil, err
 		}
 	}

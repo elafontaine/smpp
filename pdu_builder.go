@@ -7,6 +7,44 @@ func NewBindTransmitter() *PDU {
 		commandStatus:  "ESME_ROK",
 		sequenceNumber: 0,
 	}
+	body := defaultBindBody()
+	return &PDU{header: header, body: body}
+}
+
+func NewBindReceiver() *PDU {
+	header := Header{
+		commandLength:  0,
+		commandId:      "bind_receiver",
+		commandStatus:  "ESME_ROK",
+		sequenceNumber: 0,
+	}
+	body := defaultBindBody()
+	return &PDU{header: header, body: body}
+}
+
+func NewBindTransceiver() *PDU {
+	header := Header{
+		commandLength: 0,
+		commandId: "bind_transceiver",
+		commandStatus: "ESME_ROK",
+		sequenceNumber: 0,
+	}
+	body := defaultBindBody()
+	return &PDU{header: header, body: body}
+}
+
+func (p PDU) WithSystemId(s string) PDU {
+	p.body.mandatoryParameter["system_id"] = s
+	return p
+}
+
+func (p PDU) WithPassword(s string) PDU {
+	p.body.mandatoryParameter["password"] = s
+	return p
+}
+
+
+func defaultBindBody() Body {
 	body := Body{
 		mandatoryParameter: map[string]interface{}{
 			"system_id":         "",
@@ -19,15 +57,5 @@ func NewBindTransmitter() *PDU {
 		},
 		optionalParameters: nil,
 	}
-	return &PDU{header: header, body: body}
-}
-
-func (p PDU) withSystemId(s string) PDU {
-	p.body.mandatoryParameter["system_id"] = s
-	return p
-}
-
-func (p PDU) withPassword(s string) PDU {
-	p.body.mandatoryParameter["password"] = s
-	return p
+	return body
 }
