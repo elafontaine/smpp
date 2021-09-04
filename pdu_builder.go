@@ -1,5 +1,7 @@
 package smpp
 
+
+/* Sane Defaults objects */
 func NewBindTransmitter() *PDU {
 	header := Header{
 		commandLength:  0,
@@ -32,7 +34,39 @@ func NewBindTransceiver() *PDU {
 	body := defaultBindBody()
 	return &PDU{header: header, body: body}
 }
+func NewSubmitSM() *PDU {
+	header := Header{
+		commandLength: 0,
+		commandId: "submit_sm",
+		commandStatus: "ESME_OK",
+		sequenceNumber: 0,
+	}
+	body := Body{
+		mandatoryParameter: map[string]interface{}{
+			"service_type": "",
+			"source_addr_ton": 0,
+			"source_addr_npi":0,
+			"source_addr": "",
+			"dest_addr_ton": 0,
+			"dest_addr_npi": 0,
+			"destination_addr": "",
+			"esm_class": 0,
+			"protocol_id": 0,
+			"priority_flag": 0,
+			"schedule_delivery_time": "",
+			"validity_period": "",
+			"registered_delivery": 0,
+			"replace_if_present_flag": 0,
+			"data_coding": 0,
+			"sm_default_msg_id": 0,
+			"sm_length": 0,
+			"short_message":"",
+		},
+	}
+	return &PDU{header: header, body: body}
+}
 
+/* Builder Pattern associated functions */
 func (p PDU) WithSystemId(s string) PDU {
 	p.body.mandatoryParameter["system_id"] = s
 	return p
