@@ -103,6 +103,15 @@ func (p PDU) WithDestinationAddress(s string) PDU {
 	p.body.mandatoryParameter["destination_addr"] = s
 	return p
 }
+
+func (p PDU) WithDataCoding(i int) PDU {
+	p.body.mandatoryParameter["data_coding"] = i
+	return p
+}
+func (p PDU) WithMessage(s string) PDU {
+	p.body.mandatoryParameter["short_message"] = s
+	return p
+}
 func defaultBindBody() Body {
 	body := Body{
 		mandatoryParameter: map[string]interface{}{
