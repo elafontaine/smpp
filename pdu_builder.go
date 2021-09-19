@@ -91,7 +91,18 @@ func (p PDU) WithSourceAddress(s string) PDU {
 	p.body.mandatoryParameter["source_addr"] = s
 	return p
 }
-
+func (p PDU) WithDestinationAddressNpi(i int) PDU {
+	p.body.mandatoryParameter["dest_addr_npi"] = i
+	return p
+}
+func (p PDU) WithDestinationAddressTon(i int) PDU {
+	p.body.mandatoryParameter["dest_addr_ton"] = i
+	return p
+}
+func (p PDU) WithDestinationAddress(s string) PDU {
+	p.body.mandatoryParameter["destination_addr"] = s
+	return p
+}
 func defaultBindBody() Body {
 	body := Body{
 		mandatoryParameter: map[string]interface{}{

@@ -127,13 +127,19 @@ func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 	expectedSubmitSm.body.mandatoryParameter["source_addr"] = "1234"
 	expectedSubmitSm.body.mandatoryParameter["source_addr_ton"] = 2
 	expectedSubmitSm.body.mandatoryParameter["source_addr_npi"] = 1
+	expectedSubmitSm.body.mandatoryParameter["destination_addr"] = "12345"
+	expectedSubmitSm.body.mandatoryParameter["dest_addr_ton"] = 2
+	expectedSubmitSm.body.mandatoryParameter["dest_addr_npi"] = 1
 	expectedSubmitSm.header.commandLength = 0
 
 
 	actualSubmitSm := NewSubmitSM().
 		WithSourceAddress("1234").
 		WithSourceAddressTon(2).
-		WithSourceAddressNpi(1)
+		WithSourceAddressNpi(1).
+		WithDestinationAddress("12345").
+		WithDestinationAddressNpi(1).
+		WithDestinationAddressTon(2)
 
 	t.Run("Constructor pattern for binds", func(t *testing.T) {
 		if got := actualSubmitSm; !reflect.DeepEqual(got, expectedSubmitSm) {
