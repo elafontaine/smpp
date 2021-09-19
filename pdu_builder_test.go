@@ -108,36 +108,36 @@ func TestSubmitSMDefaultValues(t *testing.T){
 		header: Header{
 			commandLength: 0,
 			commandId: "submit_sm",
-			commandStatus: "ESME_OK",
+			commandStatus: "ESME_ROK",
 			sequenceNumber: 0,
 		},
-		body: Body{
-			mandatoryParameter: map[string]interface{}{
-				"service_type": "",
-				"source_addr_ton": 0,
-				"source_addr_npi":0,
-				"source_addr": "",
-				"dest_addr_ton": 0,
-				"dest_addr_npi": 0,
-				"destination_addr": "",
-				"esm_class": 0,
-				"protocol_id": 0,
-				"priority_flag": 0,
-				"schedule_delivery_time": "",
-				"validity_period": "",
-				"registered_delivery": 0,
-				"replace_if_present_flag": 0,
-				"data_coding": 0,
-				"sm_default_msg_id": 0,
-				"sm_length": 0,
-				"short_message":"",
-			},
-			optionalParameters: nil,
-		},
+		body: defaultSubmitSmBody(),
 	}
 	t.Run("Constructor pattern for submit_sm", func(t *testing.T) {
 		if got := NewSubmitSM(); !reflect.DeepEqual(got, defaultSubmitSMObj) {
 			t.Errorf("The constructor pattern isn't creating expected PDU object! %v, want %v", got, defaultSubmitSMObj)
+		}
+	})
+}
+
+
+func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
+	expectedSubmitSm := submitSmObj
+	expectedSubmitSm.body = defaultSubmitSmBody()
+	expectedSubmitSm.body.mandatoryParameter["source_addr"] = "1234"
+	expectedSubmitSm.body.mandatoryParameter["source_addr_ton"] = 2
+	expectedSubmitSm.body.mandatoryParameter["source_addr_npi"] = 1
+	expectedSubmitSm.header.commandLength = 0
+
+
+	actualSubmitSm := NewSubmitSM().
+		WithSourceAddress("1234").
+		WithSourceAddressTon(2).
+		WithSourceAddressNpi(1)
+
+	t.Run("Constructor pattern for binds", func(t *testing.T) {
+		if got := actualSubmitSm; !reflect.DeepEqual(got, expectedSubmitSm) {
+			t.Errorf("The constructor pattern isn't creating expected PDU object! %v, want %v", got, expectedSubmitSm)
 		}
 	})
 }

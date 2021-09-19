@@ -27,6 +27,8 @@ var bindTransmitterObjHeader = Header{commandLength: 31, commandId: "bind_transm
 var bindTransmitterRespObjHeader = Header{commandLength: 21, commandId: "bind_transmitter_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var submitSmRespObjHeader = Header{commandLength: 18, commandId: "submit_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 3}
 var deliverSmObjHeader = Header{commandLength: 63, commandId: "deliver_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
+var submitSmObjHeader = Header{commandLength: 63, commandId: "submit_sm", commandStatus: "ESME_ROK", sequenceNumber: 0}
+
 
 var bindTransmitterObjBody = Body{
 	mandatoryParameter: map[string]interface{}{
@@ -77,6 +79,7 @@ var deliverSmObj = PDU{
 	header: deliverSmObjHeader,
 	body:   deliverSmObjBody,
 }
+var submitSmObj = PDU{header: submitSmObjHeader,body: deliverSmObjBody}
 var bindTransmitterObj = PDU{header: bindTransmitterObjHeader, body: bindTransmitterObjBody}
 var bindTransmitterRespObj = PDU{header: bindTransmitterRespObjHeader, body: bindTransmitterRespObjBody}
 var enquiryLinkObj = PDU{

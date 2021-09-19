@@ -1,6 +1,5 @@
 package smpp
 
-
 /* Sane Defaults objects */
 func NewBindTransmitter() *PDU {
 	header := Header{
@@ -36,33 +35,12 @@ func NewBindTransceiver() *PDU {
 }
 func NewSubmitSM() *PDU {
 	header := Header{
-		commandLength: 0,
-		commandId: "submit_sm",
-		commandStatus: "ESME_OK",
+		commandLength:  0,
+		commandId:      "submit_sm",
+		commandStatus:  "ESME_ROK",
 		sequenceNumber: 0,
 	}
-	body := Body{
-		mandatoryParameter: map[string]interface{}{
-			"service_type": "",
-			"source_addr_ton": 0,
-			"source_addr_npi":0,
-			"source_addr": "",
-			"dest_addr_ton": 0,
-			"dest_addr_npi": 0,
-			"destination_addr": "",
-			"esm_class": 0,
-			"protocol_id": 0,
-			"priority_flag": 0,
-			"schedule_delivery_time": "",
-			"validity_period": "",
-			"registered_delivery": 0,
-			"replace_if_present_flag": 0,
-			"data_coding": 0,
-			"sm_default_msg_id": 0,
-			"sm_length": 0,
-			"short_message":"",
-		},
-	}
+	body := defaultSubmitSmBody()
 	return &PDU{header: header, body: body}
 }
 
@@ -101,6 +79,19 @@ func (p PDU) WithAddressTon(i int) PDU {
 	return p
 }
 
+func (p PDU) WithSourceAddressNpi(i int) PDU {
+	p.body.mandatoryParameter["source_addr_npi"] = i
+	return p
+}
+func (p PDU) WithSourceAddressTon(i int) PDU {
+	p.body.mandatoryParameter["source_addr_ton"] = i
+	return p
+}
+func (p PDU) WithSourceAddress(s string) PDU {
+	p.body.mandatoryParameter["source_addr"] = s
+	return p
+}
+
 func defaultBindBody() Body {
 	body := Body{
 		mandatoryParameter: map[string]interface{}{
@@ -115,4 +106,32 @@ func defaultBindBody() Body {
 		optionalParameters: nil,
 	}
 	return body
+}
+
+func defaultSubmitSmBody() Body {
+	body := Body{
+		mandatoryParameter: map[string]interface{}{
+			"service_type":            "",
+			"source_addr_ton":         0,
+			"source_addr_npi":         0,
+			"source_addr":             "",
+			"dest_addr_ton":           0,
+			"dest_addr_npi":           0,
+			"destination_addr":        "",
+			"esm_class":               0,
+			"protocol_id":             0,
+			"priority_flag":           0,
+			"schedule_delivery_time":  "",
+			"validity_period":         "",
+			"registered_delivery":     0,
+			"replace_if_present_flag": 0,
+			"data_coding":             0,
+			"sm_default_msg_id":       0,
+			"sm_length":               0,
+			"short_message":           "",
+		},
+		optionalParameters: nil,
+	}
+	return body
+
 }
