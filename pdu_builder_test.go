@@ -6,7 +6,7 @@ import (
 )
 
 func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
-	defaultBindTransmitter := &PDU{
+	defaultBindTransmitter := PDU{
 		header: Header{
 			0,
 			"bind_transmitter",
@@ -28,15 +28,14 @@ func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 	}
 
 	t.Run("instantiating bind_transmitter", func(t *testing.T) {
-		if got := NewBindTransmitter(); !reflect.DeepEqual(got, defaultBindTransmitter) {
-			t.Errorf("NewBindTransmitter() = %v, want %v", got, defaultBindTransmitter)
-		}
+		comparePdu(NewBindTransmitter(),
+		defaultBindTransmitter,t)
 	})
 }
 
 func TestDefaultValueForNewBindReceiver(t *testing.T) {
 
-	defaultBindReceiver := &PDU{
+	defaultBindReceiver := PDU{
 		header: Header{
 			0,
 			"bind_receiver",
@@ -55,7 +54,7 @@ func TestDefaultValueForNewBindReceiver(t *testing.T) {
 
 func TestDefaultValueForNewBindTransceiver(t *testing.T) {
 
-	defaultBindTransceiver := &PDU{
+	defaultBindTransceiver := PDU{
 		header: Header{
 			0,
 			"bind_transceiver",
@@ -66,9 +65,7 @@ func TestDefaultValueForNewBindTransceiver(t *testing.T) {
 	}
 
 	t.Run("instantiating bind_transceiver", func(t *testing.T) {
-		if got := NewBindTransceiver(); !reflect.DeepEqual(got, defaultBindTransceiver) {
-			t.Errorf("NewBindTransceiver() = %v, want %v", got, defaultBindTransceiver)
-		}
+		comparePdu(NewBindTransceiver(),defaultBindTransceiver,t)
 	})
 }
 
@@ -97,14 +94,12 @@ func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
 	bindTransmiter.header.commandLength = len(binaryPdu)
 
 	t.Run("Constructor pattern for binds", func(t *testing.T) {
-		if got := bindTransmiter; !reflect.DeepEqual(got, expectedBindTransmitterObj) {
-			t.Errorf("The constructor pattern isn't creating expected PDU object! %v, want %v", got, expectedBindTransmitterObj)
-		}
+		comparePdu(bindTransmiter,expectedBindTransmitterObj,t)
 	})
 }
 
 func TestSubmitSMDefaultValues(t *testing.T){
-	defaultSubmitSMObj := &PDU{
+	defaultSubmitSMObj := PDU{
 		header: Header{
 			commandLength: 0,
 			commandId: "submit_sm",
@@ -114,9 +109,7 @@ func TestSubmitSMDefaultValues(t *testing.T){
 		body: defaultSubmitSmBody(),
 	}
 	t.Run("Constructor pattern for submit_sm", func(t *testing.T) {
-		if got := NewSubmitSM(); !reflect.DeepEqual(got, defaultSubmitSMObj) {
-			t.Errorf("The constructor pattern isn't creating expected PDU object! %v, want %v", got, defaultSubmitSMObj)
-		}
+		comparePdu(NewSubmitSM(),defaultSubmitSMObj,t)
 	})
 }
 
@@ -146,8 +139,31 @@ func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 		WithMessage("Hello")
 
 	t.Run("Constructor pattern for binds", func(t *testing.T) {
-		if got := actualSubmitSm; !reflect.DeepEqual(got, expectedSubmitSm) {
-			t.Errorf("The constructor pattern isn't creating expected PDU object! %v, want %v", got, expectedSubmitSm)
-		}
+		comparePdu(actualSubmitSm,expectedSubmitSm,t)
 	})
+}
+
+func TestDeliverSmInstantiation(t *testing.T) {
+	expectedDeliverSM := deliverSmObj
+	expectedDeliverSM.body = defaultSubmitSmBody()
+	expectedDeliverSM.header.commandLength = 0
+	expectedDeliverSM.header.sequenceNumber = 0
+
+	actualDeliverSM := NewDeliverSM()
+
+	t.Run("Constructor Pattern for deliverSM ", func(t *testing.T) {
+		comparePdu(actualDeliverSM, expectedDeliverSM, t)
+	})
+}
+
+func comparePdu(actualPdu PDU, expectedPdu PDU, t *testing.T) {
+	if got := actualPdu; !reflect.DeepEqual(got, expectedPdu) {
+		if !reflect.DeepEqual(got.header, expectedPdu.header) {
+			t.Errorf("Difference in the header strucutre")
+		}
+		if !reflect.DeepEqual(got.body, expectedPdu.body) {
+			t.Errorf("Difference in the body strucutre")
+		}
+		t.Errorf("The constructor pattern isn't creating the expected PDU object! %v, want %v", got, expectedPdu)
+	}
 }

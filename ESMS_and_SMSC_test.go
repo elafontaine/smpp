@@ -31,7 +31,7 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 	}
 	defer Esme.Close()
 	pdu := NewSubmitSM()
-	expectedBytes, err := EncodePdu(*pdu)
+	expectedBytes, err := EncodePdu(pdu)
 	if err != nil {
 		t.Errorf("Couldn't get the bytes out of the PDU: %s", err)
 	}

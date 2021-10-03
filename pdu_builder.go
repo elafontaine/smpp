@@ -1,7 +1,7 @@
 package smpp
 
 /* Sane Defaults objects */
-func NewBindTransmitter() *PDU {
+func NewBindTransmitter() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "bind_transmitter",
@@ -9,10 +9,10 @@ func NewBindTransmitter() *PDU {
 		sequenceNumber: 0,
 	}
 	body := defaultBindBody()
-	return &PDU{header: header, body: body}
+	return PDU{header: header, body: body}
 }
 
-func NewBindReceiver() *PDU {
+func NewBindReceiver() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "bind_receiver",
@@ -20,10 +20,10 @@ func NewBindReceiver() *PDU {
 		sequenceNumber: 0,
 	}
 	body := defaultBindBody()
-	return &PDU{header: header, body: body}
+	return PDU{header: header, body: body}
 }
 
-func NewBindTransceiver() *PDU {
+func NewBindTransceiver() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "bind_transceiver",
@@ -31,9 +31,9 @@ func NewBindTransceiver() *PDU {
 		sequenceNumber: 0,
 	}
 	body := defaultBindBody()
-	return &PDU{header: header, body: body}
+	return PDU{header: header, body: body}
 }
-func NewSubmitSM() *PDU {
+func NewSubmitSM() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "submit_sm",
@@ -41,7 +41,17 @@ func NewSubmitSM() *PDU {
 		sequenceNumber: 0,
 	}
 	body := defaultSubmitSmBody()
-	return &PDU{header: header, body: body}
+	return PDU{header: header, body: body}
+}
+func NewDeliverSM() PDU {
+	header := Header{
+		commandLength:  0,
+		commandId:      "deliver_sm",
+		commandStatus:  "ESME_ROK",
+		sequenceNumber: 0,
+	}
+	body := defaultSubmitSmBody()
+	return PDU{header: header, body: body}
 }
 
 /* Builder Pattern associated functions */
