@@ -186,6 +186,10 @@ func TestDeliverSmRespInstantiation(t *testing.T){
 	expectedDeliverSmResp := deliverSmRespObj
 	expectedDeliverSmResp.header.commandLength = 0
 	expectedDeliverSmResp.header.sequenceNumber = 0
+	expectedDeliverSmResp.body = Body{
+		mandatoryParameter: map[string]interface{}{},
+		optionalParameters: nil,
+	}
 	expectedDeliverSmResp.body.mandatoryParameter["message_id"] = "2"
 
 	actualDeliverSmResp := NewDeliverSMResp().
