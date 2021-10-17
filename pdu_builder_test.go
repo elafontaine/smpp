@@ -156,6 +156,19 @@ func TestDeliverSmInstantiation(t *testing.T) {
 	})
 }
 
+func TestDataSmInstantiation(t *testing.T) {
+	expectedDataSm := dataSmObj
+	expectedDataSm.body = defaultSubmitSmBody()
+	expectedDataSm.header.commandLength = 0
+	expectedDataSm.header.sequenceNumber = 0
+
+	actualDataSM := NewDataSM()
+
+	t.Run("Constructor Pattern for dataSM ", func(t *testing.T) {
+		comparePdu(actualDataSM,expectedDataSm,t)
+	})
+}
+
 func comparePdu(actualPdu PDU, expectedPdu PDU, t *testing.T) {
 	if got := actualPdu; !reflect.DeepEqual(got, expectedPdu) {
 		if !reflect.DeepEqual(got.header, expectedPdu.header) {
