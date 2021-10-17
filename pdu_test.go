@@ -26,6 +26,7 @@ var enquiryLinkRespObjHeader = Header{commandLength: 16, commandId: "enquire_lin
 var bindTransmitterObjHeader = Header{commandLength: 31, commandId: "bind_transmitter", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var bindTransmitterRespObjHeader = Header{commandLength: 21, commandId: "bind_transmitter_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
 var submitSmRespObjHeader = Header{commandLength: 18, commandId: "submit_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 3}
+var deliverSmRespObjHeader = Header{commandLength: 18, commandId: "deliver_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 3}
 var deliverSmObjHeader = Header{commandLength: 63, commandId: "deliver_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
 var dataSmObjHeader = Header{commandLength: 63, commandId: "data_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
 var submitSmObjHeader = Header{commandLength: 63, commandId: "submit_sm", commandStatus: "ESME_ROK", sequenceNumber: 0}
@@ -75,6 +76,7 @@ var deliverSmObjBody = Body{
 	},
 }
 var submitSmRespObj = PDU{header: submitSmRespObjHeader, body: submitSmRespObjBody}
+var deliverSmRespObj = PDU{header: deliverSmRespObjHeader, body: submitSmRespObjBody}
 var deliverSmObj = PDU{header: deliverSmObjHeader, body: deliverSmObjBody}
 var dataSmObj = PDU{header: dataSmObjHeader, body: deliverSmObjBody}
 var submitSmObj = PDU{header: submitSmObjHeader, body: deliverSmObjBody}

@@ -169,6 +169,33 @@ func TestDataSmInstantiation(t *testing.T) {
 	})
 }
 
+func TestSubmitSmRespInstantiation(t *testing.T){
+	expectedSubmitSmResp := submitSmRespObj
+	expectedSubmitSmResp.header.commandLength = 0
+	expectedSubmitSmResp.header.sequenceNumber = 0
+
+	actualSubmitSmResp := NewSubmitSMResp().
+		WithMessageId("1")
+
+	t.Run("Constructor Pattern for SubmitSMResp ", func(t *testing.T) {
+		comparePdu(actualSubmitSmResp,expectedSubmitSmResp,t)
+	})
+}
+
+func TestDeliverSmRespInstantiation(t *testing.T){
+	expectedDeliverSmResp := deliverSmRespObj
+	expectedDeliverSmResp.header.commandLength = 0
+	expectedDeliverSmResp.header.sequenceNumber = 0
+	expectedDeliverSmResp.body.mandatoryParameter["message_id"] = "2"
+
+	actualDeliverSmResp := NewDeliverSMResp().
+		WithMessageId("2")
+
+	t.Run("Constructor Pattern for DeliverSmResp ", func(t *testing.T) {
+		comparePdu(actualDeliverSmResp,expectedDeliverSmResp,t)
+	})
+}
+
 func comparePdu(actualPdu PDU, expectedPdu PDU, t *testing.T) {
 	if got := actualPdu; !reflect.DeepEqual(got, expectedPdu) {
 		if !reflect.DeepEqual(got.header, expectedPdu.header) {

@@ -45,6 +45,32 @@ func NewSubmitSM() PDU {
 	return PDU{header: header, body: body}
 }
 
+func NewSubmitSMResp() PDU {
+	header := Header{
+		commandLength: 0,
+		commandId: "submit_sm_resp",
+		commandStatus: "ESME_ROK",
+		sequenceNumber: 0,
+	}
+	body := Body{
+		mandatoryParameter: map[string]interface{}{},
+	}
+	return PDU{header: header,body: body}
+}
+
+func NewDeliverSMResp() PDU {
+	header := Header{
+		commandLength: 0,
+		commandId: "deliver_sm_resp",
+		commandStatus: "ESME_ROK",
+		sequenceNumber: 0,
+	}
+	body := Body{
+		mandatoryParameter: map[string]interface{}{},
+	}
+	return PDU{header: header,body: body}
+}
+
 func NewDeliverSM() PDU {
 	header := Header{
 		commandLength:  0,
@@ -184,5 +210,10 @@ func (p PDU) WithDataCoding(i int) PDU {
 
 func (p PDU) WithMessage(s string) PDU {
 	p.body.mandatoryParameter["short_message"] = s
+	return p
+}
+
+func (p PDU) WithMessageId( id string) PDU {
+	p.body.mandatoryParameter["message_id"] = id
 	return p
 }
