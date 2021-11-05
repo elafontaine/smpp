@@ -21,15 +21,15 @@ var optionalParameterReceiptMessageIdBytes, _ = hex.DecodeString("001e0006313131
 var optionalParameterMessageStateBytes, _ = hex.DecodeString("0427000102")
 var optionalParameterDeliveryFailureReasonBytes, _ = hex.DecodeString("0425000100")
 
-var enquiryLinkObjHeader = Header{commandLength: 16, commandId: "enquire_link", commandStatus: "ESME_ROK", sequenceNumber: 0}
-var enquiryLinkRespObjHeader = Header{commandLength: 16, commandId: "enquire_link_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
-var bindTransmitterObjHeader = Header{commandLength: 31, commandId: "bind_transmitter", commandStatus: "ESME_ROK", sequenceNumber: 0}
-var bindTransmitterRespObjHeader = Header{commandLength: 21, commandId: "bind_transmitter_resp", commandStatus: "ESME_ROK", sequenceNumber: 0}
-var submitSmRespObjHeader = Header{commandLength: 18, commandId: "submit_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 3}
-var deliverSmRespObjHeader = Header{commandLength: 18, commandId: "deliver_sm_resp", commandStatus: "ESME_ROK", sequenceNumber: 3}
-var deliverSmObjHeader = Header{commandLength: 63, commandId: "deliver_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
-var dataSmObjHeader = Header{commandLength: 63, commandId: "data_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
-var submitSmObjHeader = Header{commandLength: 63, commandId: "submit_sm", commandStatus: "ESME_ROK", sequenceNumber: 0}
+var enquiryLinkObjHeader = Header{commandLength: 16, commandId: "enquire_link", commandStatus: ESME_ROK, sequenceNumber: 0}
+var enquiryLinkRespObjHeader = Header{commandLength: 16, commandId: "enquire_link_resp", commandStatus: ESME_ROK, sequenceNumber: 0}
+var bindTransmitterObjHeader = Header{commandLength: 31, commandId: "bind_transmitter", commandStatus: ESME_ROK, sequenceNumber: 0}
+var bindTransmitterRespObjHeader = Header{commandLength: 21, commandId: "bind_transmitter_resp", commandStatus: ESME_ROK, sequenceNumber: 0}
+var submitSmRespObjHeader = Header{commandLength: 18, commandId: "submit_sm_resp", commandStatus: ESME_ROK, sequenceNumber: 3}
+var deliverSmRespObjHeader = Header{commandLength: 18, commandId: "deliver_sm_resp", commandStatus: ESME_ROK, sequenceNumber: 3}
+var deliverSmObjHeader = Header{commandLength: 63, commandId: "deliver_sm", commandStatus: ESME_ROK, sequenceNumber: 1}
+var dataSmObjHeader = Header{commandLength: 63, commandId: "data_sm", commandStatus: ESME_ROK, sequenceNumber: 1}
+var submitSmObjHeader = Header{commandLength: 63, commandId: "submit_sm", commandStatus: ESME_ROK, sequenceNumber: 0}
 var generickNackHeader = Header{commandLength: 63, commandId: "generick_nack", commandStatus: "ESME_RINVSRCADR", sequenceNumber: 0}
 
 var bindTransmitterObjBody = Body{
@@ -90,7 +90,7 @@ var missingBodySubmitSMPdu = PDU{
 	header: Header{
 		sequenceNumber: 1,
 		commandId:      "submit_sm",
-		commandStatus:  "ESME_OK",
+		commandStatus:  ESME_ROK,
 		commandLength:  0,
 	},
 	body: Body{},
@@ -99,7 +99,7 @@ var missingBodySubmitSMPduButWithServiceType = PDU{
 	header: Header{
 		sequenceNumber: 1,
 		commandId:      "submit_sm",
-		commandStatus:  "ESME_OK",
+		commandStatus:  ESME_ROK,
 		commandLength:  0,
 	},
 	body: Body{mandatoryParameter: map[string]interface{}{

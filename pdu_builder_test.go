@@ -10,7 +10,7 @@ func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 		header: Header{
 			0,
 			"bind_transmitter",
-			"ESME_ROK",
+			ESME_ROK,
 			0,
 		},
 		body: Body{
@@ -39,7 +39,7 @@ func TestDefaultValueForNewBindReceiver(t *testing.T) {
 		header: Header{
 			0,
 			"bind_receiver",
-			"ESME_ROK",
+			ESME_ROK,
 			0,
 		},
 		body: defaultBindBody(),
@@ -58,7 +58,7 @@ func TestDefaultValueForNewBindTransceiver(t *testing.T) {
 		header: Header{
 			0,
 			"bind_transceiver",
-			"ESME_ROK",
+			ESME_ROK,
 			0,
 		},
 		body: defaultBindBody(),
@@ -103,7 +103,7 @@ func TestSubmitSMDefaultValues(t *testing.T){
 		header: Header{
 			commandLength: 0,
 			commandId: "submit_sm",
-			commandStatus: "ESME_ROK",
+			commandStatus: ESME_ROK,
 			sequenceNumber: 0,
 		},
 		body: defaultSubmitSmBody(),

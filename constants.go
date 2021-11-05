@@ -561,54 +561,54 @@ var commandIdByName = map[string]map[string]string{
 }
 
 var commandStatusByName = map[string]map[string]string{
-	"ESME_ROK":              {"hex": "00000000", "name": "ESME_ROK", "description": "No error"},
-	"ESME_RINVMSGLEN":       {"hex": "00000001", "name": "ESME_RINVMSGLEN", "description": "Message Length is invalid"},
-	"ESME_RINVCMDLEN":       {"hex": "00000002", "name": "ESME_RINVCMDLEN", "description": "Command Length is invalid"},
-	"ESME_RINVCMDID":        {"hex": "00000003", "name": "ESME_RINVCMDID", "description": "Invalid Command ID"},
-	"ESME_RINVBNDSTS":       {"hex": "00000004", "name": "ESME_RINVBNDSTS", "description": "Incorrect BIND Status for given command"},
-	"ESME_RALYBND":          {"hex": "00000005", "name": "ESME_RALYBND", "description": "ESME Already in bound state"},
-	"ESME_RINVPRTFLG":       {"hex": "00000006", "name": "ESME_RINVPRTFLG", "description": "Invalid priority flag"},
-	"ESME_RINVREGDLVFLG":    {"hex": "00000007", "name": "ESME_RINVREGDLVFLG", "description": "Invalid registered delivery flag"},
-	"ESME_RSYSERR":          {"hex": "00000008", "name": "ESME_RSYSERR", "description": "System Error"},
-	"ESME_RINVSRCADR":       {"hex": "0000000a", "name": "ESME_RINVSRCADR", "description": "Invalid source address"},
-	"ESME_RINVDSTADR":       {"hex": "0000000b", "name": "ESME_RINVDSTADR", "description": "Invalid destination address"},
-	"ESME_RINVMSGID":        {"hex": "0000000c", "name": "ESME_RINVMSGID", "description": "Message ID is invalid"},
-	"ESME_RBINDFAIL":        {"hex": "0000000d", "name": "ESME_RBINDFAIL", "description": "Bind failed"},
-	"ESME_RINVPASWD":        {"hex": "0000000e", "name": "ESME_RINVPASWD", "description": "Invalid password"},
-	"ESME_RINVSYSID":        {"hex": "0000000f", "name": "ESME_RINVSYSID", "description": "Invalid System ID"},
-	"ESME_RCANCELFAIL":      {"hex": "00000011", "name": "ESME_RCANCELFAIL", "description": "Cancel SM Failed"},
-	"ESME_RREPLACEFAIL":     {"hex": "00000013", "name": "ESME_RREPLACEFAIL", "description": "Replace SM Failed"},
-	"ESME_RMSGQFUL":         {"hex": "00000014", "name": "ESME_RMSGQFUL", "description": "Message queue full"},
-	"ESME_RINVSERTYP":       {"hex": "00000015", "name": "ESME_RINVSERTYP", "description": "Invalid service type"},
-	"ESME_RINVNUMDESTS":     {"hex": "00000033", "name": "ESME_RINVNUMDESTS", "description": "Invalid number of destinations"},
-	"ESME_RINVDLNAME":       {"hex": "00000034", "name": "ESME_RINVDLNAME", "description": "Invalid distribution list name"},
-	"ESME_RINVDESTFLAG":     {"hex": "00000040", "name": "ESME_RINVDESTFLAG", "description": "Destination flag is invalid (submit_multi)"},
-	"ESME_RINVSUBREP":       {"hex": "00000042", "name": "ESME_RINVSUBREP", "description": "Invalid `submit with replace` request (i.e.submit_sm with replace_if_present_flag set)"},
-	"ESME_RINVESMCLASS":     {"hex": "00000043", "name": "ESME_RINVESMCLASS", "description": "Invalid esm_class field data"},
-	"ESME_RCNTSUBDL":        {"hex": "00000044", "name": "ESME_RCNTSUBDL", "description": "Cannot submit to distribution list"},
-	"ESME_RSUBMITFAIL":      {"hex": "00000045", "name": "ESME_RSUBMITFAIL", "description": "submit_sm or submit_multi failed"},
-	"ESME_RINVSRCTON":       {"hex": "00000048", "name": "ESME_RINVSRCTON", "description": "Invalid source address TON"},
-	"ESME_RINVSRCNPI":       {"hex": "00000049", "name": "ESME_RINVSRCNPI", "description": "Invalid source address NPI"},
-	"ESME_RINVDSTTON":       {"hex": "00000050", "name": "ESME_RINVDSTTON", "description": "Invalid destination address TON"},
-	"ESME_RINVDSTNPI":       {"hex": "00000051", "name": "ESME_RINVDSTNPI", "description": "Invalid destination address NPI"},
-	"ESME_RINVSYSTYP":       {"hex": "00000053", "name": "ESME_RINVSYSTYP", "description": "Invalid system_type field"},
-	"ESME_RINVREPFLAG":      {"hex": "00000054", "name": "ESME_RINVREPFLAG", "description": "Invalid replace_if_present flag"},
-	"ESME_RINVNUMMSGS":      {"hex": "00000055", "name": "ESME_RINVNUMMSGS", "description": "Invalid number of messages"},
-	"ESME_RTHROTTLED":       {"hex": "00000058", "name": "ESME_RTHROTTLED", "description": "Throttling error (ESME has exceeded allowed message limits)"},
-	"ESME_RINVSCHED":        {"hex": "00000061", "name": "ESME_RINVSCHED", "description": "Invalid scheduled delivery time"},
-	"ESME_RINVEXPIRY":       {"hex": "00000062", "name": "ESME_RINVEXPIRY", "description": "Invalid message validity period (expiry time)"},
-	"ESME_RINVDFTMSGID":     {"hex": "00000063", "name": "ESME_RINVDFTMSGID", "description": "Predefined message invalid or not found"},
-	"ESME_RX_T_APPN":        {"hex": "00000064", "name": "ESME_RX_T_APPN", "description": "ESME Receiver Temporary App Error Code"},
-	"ESME_RX_P_APPN":        {"hex": "00000065", "name": "ESME_RX_P_APPN", "description": "ESME Receiver Permanent App Error Code"},
-	"ESME_RX_R_APPN":        {"hex": "00000066", "name": "ESME_RX_R_APPN", "description": "ESME Receiver Reject Message Error Code"},
-	"ESME_RQUERYFAIL":       {"hex": "00000067", "name": "ESME_RQUERYFAIL", "description": "query_sm request failed"},
-	"ESME_RINVOPTPARSTREAM": {"hex": "000000c0", "name": "ESME_RINVOPTPARSTREAM", "description": "Error in the optional part of the PDU Body"},
-	"ESME_ROPTPARNOTALLWD":  {"hex": "000000c1", "name": "ESME_ROPTPARNOTALLWD", "description": "Optional paramenter not allowed"},
-	"ESME_RINVPARLEN":       {"hex": "000000c2", "name": "ESME_RINVPARLEN", "description": "Invalid parameter length"},
-	"ESME_RMISSINGOPTPARAM": {"hex": "000000c3", "name": "ESME_RMISSINGOPTPARAM", "description": "Expected optional parameter missing"},
-	"ESME_RINVOPTPARAMVAL":  {"hex": "000000c4", "name": "ESME_RINVOPTPARAMVAL", "description": "Invalid optional parameter value"},
-	"ESME_RDELIVERYFAILURE": {"hex": "000000fe", "name": "ESME_RDELIVERYFAILURE", "description": "Delivery Failure (used for data_sm_resp)"},
-	"ESME_RUNKNOWNERR":      {"hex": "000000ff", "name": "ESME_RUNKNOWNERR", "description": "Unknown error"},
+	ESME_ROK:              {"hex": "00000000", "name": ESME_ROK, "description": "No error"},
+	ESME_RINVMSGLEN:       {"hex": "00000001", "name": ESME_RINVMSGLEN, "description": "Message Length is invalid"},
+	ESME_RINVCMDLEN:       {"hex": "00000002", "name": ESME_RINVCMDLEN, "description": "Command Length is invalid"},
+	ESME_RINVCMDID:        {"hex": "00000003", "name": ESME_RINVCMDID, "description": "Invalid Command ID"},
+	ESME_RINVBNDSTS:       {"hex": "00000004", "name": ESME_RINVBNDSTS, "description": "Incorrect BIND Status for given command"},
+	ESME_RALYBND:          {"hex": "00000005", "name": ESME_RALYBND, "description": "ESME Already in bound state"},
+	ESME_RINVPRTFLG:       {"hex": "00000006", "name": ESME_RINVPRTFLG, "description": "Invalid priority flag"},
+	ESME_RINVREGDLVFLG:    {"hex": "00000007", "name": ESME_RINVREGDLVFLG, "description": "Invalid registered delivery flag"},
+	ESME_RSYSERR:          {"hex": "00000008", "name": ESME_RSYSERR, "description": "System Error"},
+	ESME_RINVSRCADR:       {"hex": "0000000a", "name": ESME_RINVSRCADR, "description": "Invalid source address"},
+	ESME_RINVDSTADR:       {"hex": "0000000b", "name": ESME_RINVDSTADR, "description": "Invalid destination address"},
+	ESME_RINVMSGID:        {"hex": "0000000c", "name": ESME_RINVMSGID, "description": "Message ID is invalid"},
+	ESME_RBINDFAIL:        {"hex": "0000000d", "name": ESME_RBINDFAIL, "description": "Bind failed"},
+	ESME_RINVPASWD:        {"hex": "0000000e", "name": ESME_RINVPASWD, "description": "Invalid password"},
+	ESME_RINVSYSID:        {"hex": "0000000f", "name": ESME_RINVSYSID, "description": "Invalid System ID"},
+	ESME_RCANCELFAIL:      {"hex": "00000011", "name": ESME_RCANCELFAIL, "description": "Cancel SM Failed"},
+	ESME_RREPLACEFAIL:     {"hex": "00000013", "name": ESME_RREPLACEFAIL, "description": "Replace SM Failed"},
+	ESME_RMSGQFUL:         {"hex": "00000014", "name": ESME_RMSGQFUL, "description": "Message queue full"},
+	ESME_RINVSERTYP:       {"hex": "00000015", "name": ESME_RINVSERTYP, "description": "Invalid service type"},
+	ESME_RINVNUMDESTS:     {"hex": "00000033", "name": ESME_RINVNUMDESTS, "description": "Invalid number of destinations"},
+	ESME_RINVDLNAME:       {"hex": "00000034", "name": ESME_RINVDLNAME, "description": "Invalid distribution list name"},
+	ESME_RINVDESTFLAG:     {"hex": "00000040", "name": ESME_RINVDESTFLAG, "description": "Destination flag is invalid (submit_multi)"},
+	ESME_RINVSUBREP:       {"hex": "00000042", "name": ESME_RINVSUBREP, "description": "Invalid `submit with replace` request (i.e.submit_sm with replace_if_present_flag set)"},
+	ESME_RINVESMCLASS:     {"hex": "00000043", "name": ESME_RINVESMCLASS, "description": "Invalid esm_class field data"},
+	ESME_RCNTSUBDL:        {"hex": "00000044", "name": ESME_RCNTSUBDL, "description": "Cannot submit to distribution list"},
+	ESME_RSUBMITFAIL:      {"hex": "00000045", "name": ESME_RSUBMITFAIL, "description": "submit_sm or submit_multi failed"},
+	ESME_RINVSRCTON:       {"hex": "00000048", "name": ESME_RINVSRCTON, "description": "Invalid source address TON"},
+	ESME_RINVSRCNPI:       {"hex": "00000049", "name": ESME_RINVSRCNPI, "description": "Invalid source address NPI"},
+	ESME_RINVDSTTON:       {"hex": "00000050", "name": ESME_RINVDSTTON, "description": "Invalid destination address TON"},
+	ESME_RINVDSTNPI:       {"hex": "00000051", "name": ESME_RINVDSTNPI, "description": "Invalid destination address NPI"},
+	ESME_RINVSYSTYP:       {"hex": "00000053", "name": ESME_RINVSYSTYP, "description": "Invalid system_type field"},
+	ESME_RINVREPFLAG:      {"hex": "00000054", "name": ESME_RINVREPFLAG, "description": "Invalid replace_if_present flag"},
+	ESME_RINVNUMMSGS:      {"hex": "00000055", "name": ESME_RINVNUMMSGS, "description": "Invalid number of messages"},
+	ESME_RTHROTTLED:       {"hex": "00000058", "name": ESME_RTHROTTLED, "description": "Throttling error (ESME has exceeded allowed message limits)"},
+	ESME_RINVSCHED:        {"hex": "00000061", "name": ESME_RINVSCHED, "description": "Invalid scheduled delivery time"},
+	ESME_RINVEXPIRY:       {"hex": "00000062", "name": ESME_RINVEXPIRY, "description": "Invalid message validity period (expiry time)"},
+	ESME_RINVDFTMSGID:     {"hex": "00000063", "name": ESME_RINVDFTMSGID, "description": "Predefined message invalid or not found"},
+	ESME_RX_T_APPN:        {"hex": "00000064", "name": ESME_RX_T_APPN, "description": "ESME Receiver Temporary App Error Code"},
+	ESME_RX_P_APPN:        {"hex": "00000065", "name": ESME_RX_P_APPN, "description": "ESME Receiver Permanent App Error Code"},
+	ESME_RX_R_APPN:        {"hex": "00000066", "name": ESME_RX_R_APPN, "description": "ESME Receiver Reject Message Error Code"},
+	ESME_RQUERYFAIL:       {"hex": "00000067", "name": ESME_RQUERYFAIL, "description": "query_sm request failed"},
+	ESME_RINVOPTPARSTREAM: {"hex": "000000c0", "name": ESME_RINVOPTPARSTREAM, "description": "Error in the optional part of the PDU Body"},
+	ESME_ROPTPARNOTALLWD:  {"hex": "000000c1", "name": ESME_ROPTPARNOTALLWD, "description": "Optional paramenter not allowed"},
+	ESME_RINVPARLEN:       {"hex": "000000c2", "name": ESME_RINVPARLEN, "description": "Invalid parameter length"},
+	ESME_RMISSINGOPTPARAM: {"hex": "000000c3", "name": ESME_RMISSINGOPTPARAM, "description": "Expected optional parameter missing"},
+	ESME_RINVOPTPARAMVAL:  {"hex": "000000c4", "name": ESME_RINVOPTPARAMVAL, "description": "Invalid optional parameter value"},
+	ESME_RDELIVERYFAILURE: {"hex": "000000fe", "name": ESME_RDELIVERYFAILURE, "description": "Delivery Failure (used for data_sm_resp)"},
+	ESME_RUNKNOWNERR:      {"hex": "000000ff", "name": ESME_RUNKNOWNERR, "description": "Unknown error"},
 }
 
 var optionalParameterTagByName = map[string]map[string]interface{}{
@@ -691,3 +691,57 @@ var optionalParameterTagByName = map[string]map[string]interface{}{
 	"mcc":                          {"hex": "1450", "name": "mcc", "type": nil, "tech": "Mobile Country Code vendor extension"},
 	"mnc":                          {"hex": "1451", "name": "mnc", "type": nil, "tech": "Mobile Network Code vendor extension"},
 }
+
+/*
+SMPP Status Code Variables
+
+*/
+
+const ESME_ROK = "ESME_ROK" 
+const ESME_RINVMSGLEN = "ESME_RINVMSGLEN" 
+const ESME_RINVCMDLEN = "ESME_RINVCMDLEN" 
+const ESME_RINVCMDID = "ESME_RINVCMDID" 
+const ESME_RINVBNDSTS = "ESME_RINVBNDSTS" 
+const ESME_RALYBND = "ESME_RALYBND" 
+const ESME_RINVPRTFLG = "ESME_RINVPRTFLG" 
+const ESME_RINVREGDLVFLG = "ESME_RINVREGDLVFLG" 
+const ESME_RSYSERR = "ESME_RSYSERR" 
+const ESME_RINVSRCADR = "ESME_RINVSRCADR" 
+const ESME_RINVDSTADR = "ESME_RINVDSTADR" 
+const ESME_RINVMSGID = "ESME_RINVMSGID" 
+const ESME_RBINDFAIL = "ESME_RBINDFAIL" 
+const ESME_RINVPASWD = "ESME_RINVPASWD" 
+const ESME_RINVSYSID = "ESME_RINVSYSID" 
+const ESME_RCANCELFAIL = "ESME_RCANCELFAIL" 
+const ESME_RREPLACEFAIL = "ESME_RREPLACEFAIL" 
+const ESME_RMSGQFUL = "ESME_RMSGQFUL" 
+const ESME_RINVSERTYP = "ESME_RINVSERTYP" 
+const ESME_RINVNUMDESTS = "ESME_RINVNUMDESTS" 
+const ESME_RINVDLNAME = "ESME_RINVDLNAME" 
+const ESME_RINVDESTFLAG = "ESME_RINVDESTFLAG" 
+const ESME_RINVSUBREP = "ESME_RINVSUBREP" 
+const ESME_RINVESMCLASS = "ESME_RINVESMCLASS" 
+const ESME_RCNTSUBDL = "ESME_RCNTSUBDL" 
+const ESME_RSUBMITFAIL = "ESME_RSUBMITFAIL" 
+const ESME_RINVSRCTON = "ESME_RINVSRCTON" 
+const ESME_RINVSRCNPI = "ESME_RINVSRCNPI" 
+const ESME_RINVDSTTON = "ESME_RINVDSTTON" 
+const ESME_RINVDSTNPI = "ESME_RINVDSTNPI" 
+const ESME_RINVSYSTYP = "ESME_RINVSYSTYP" 
+const ESME_RINVREPFLAG = "ESME_RINVREPFLAG" 
+const ESME_RINVNUMMSGS = "ESME_RINVNUMMSGS" 
+const ESME_RTHROTTLED = "ESME_RTHROTTLED" 
+const ESME_RINVSCHED = "ESME_RINVSCHED" 
+const ESME_RINVEXPIRY = "ESME_RINVEXPIRY" 
+const ESME_RINVDFTMSGID = "ESME_RINVDFTMSGID" 
+const ESME_RX_T_APPN = "ESME_RX_T_APPN" 
+const ESME_RX_P_APPN = "ESME_RX_P_APPN" 
+const ESME_RX_R_APPN = "ESME_RX_R_APPN" 
+const ESME_RQUERYFAIL = "ESME_RQUERYFAIL" 
+const ESME_RINVOPTPARSTREAM = "ESME_RINVOPTPARSTREAM" 
+const ESME_ROPTPARNOTALLWD = "ESME_ROPTPARNOTALLWD" 
+const ESME_RINVPARLEN = "ESME_RINVPARLEN" 
+const ESME_RMISSINGOPTPARAM = "ESME_RMISSINGOPTPARAM" 
+const ESME_RINVOPTPARAMVAL = "ESME_RINVOPTPARAMVAL" 
+const ESME_RDELIVERYFAILURE = "ESME_RDELIVERYFAILURE" 
+const ESME_RUNKNOWNERR = "ESME_RUNKNOWNERR" 

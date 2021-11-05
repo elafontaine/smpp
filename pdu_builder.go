@@ -5,7 +5,7 @@ func NewGenerickNack() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "generick_nack",
-		commandStatus:  "ESME_ROK",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	return PDU{header: header}
@@ -15,7 +15,7 @@ func NewBindTransmitter() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "bind_transmitter",
-		commandStatus:  "ESME_ROK",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := defaultBindBody()
@@ -26,7 +26,7 @@ func NewBindReceiver() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "bind_receiver",
-		commandStatus:  "ESME_ROK",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := defaultBindBody()
@@ -37,7 +37,7 @@ func NewBindTransceiver() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "bind_transceiver",
-		commandStatus:  "ESME_ROK",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := defaultBindBody()
@@ -48,7 +48,7 @@ func NewSubmitSM() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "submit_sm",
-		commandStatus:  "ESME_ROK",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := defaultSubmitSmBody()
@@ -59,7 +59,7 @@ func NewSubmitSMResp() PDU {
 	header := Header{
 		commandLength: 0,
 		commandId: "submit_sm_resp",
-		commandStatus: "ESME_ROK",
+		commandStatus: ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := Body{
@@ -72,7 +72,7 @@ func NewDeliverSMResp() PDU {
 	header := Header{
 		commandLength: 0,
 		commandId: "deliver_sm_resp",
-		commandStatus: "ESME_ROK",
+		commandStatus: ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := Body{
@@ -85,7 +85,7 @@ func NewDeliverSM() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "deliver_sm",
-		commandStatus:  "ESME_ROK",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := defaultSubmitSmBody()
@@ -96,7 +96,7 @@ func NewDataSM() PDU {
 	header := Header{
 		commandLength:  0,
 		commandId:      "data_sm",
-		commandStatus:  "ESME_ROK",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := defaultSubmitSmBody()
