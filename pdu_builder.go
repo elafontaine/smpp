@@ -1,6 +1,16 @@
 package smpp
 
 /* Sane Defaults objects */
+func NewGenerickNack() PDU {
+	header := Header{
+		commandLength:  0,
+		commandId:      "generick_nack",
+		commandStatus:  "ESME_ROK",
+		sequenceNumber: 0,
+	}
+	return PDU{header: header}
+}
+
 func NewBindTransmitter() PDU {
 	header := Header{
 		commandLength:  0,
@@ -215,5 +225,10 @@ func (p PDU) WithMessage(s string) PDU {
 
 func (p PDU) WithMessageId( id string) PDU {
 	p.body.mandatoryParameter["message_id"] = id
+	return p
+}
+
+func (p PDU) withSMPPError( id string) PDU {
+	p.header.commandStatus = id
 	return p
 }

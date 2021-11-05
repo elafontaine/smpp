@@ -30,6 +30,7 @@ var deliverSmRespObjHeader = Header{commandLength: 18, commandId: "deliver_sm_re
 var deliverSmObjHeader = Header{commandLength: 63, commandId: "deliver_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
 var dataSmObjHeader = Header{commandLength: 63, commandId: "data_sm", commandStatus: "ESME_ROK", sequenceNumber: 1}
 var submitSmObjHeader = Header{commandLength: 63, commandId: "submit_sm", commandStatus: "ESME_ROK", sequenceNumber: 0}
+var generickNackHeader = Header{commandLength: 63, commandId: "generick_nack", commandStatus: "ESME_RINVSRCADR", sequenceNumber: 0}
 
 var bindTransmitterObjBody = Body{
 	mandatoryParameter: map[string]interface{}{
