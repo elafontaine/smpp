@@ -30,20 +30,17 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
 	defer Esme.Close()
-	pdu := NewSubmitSM()
-	expectedBytes, err := EncodePdu(pdu)
-	if err != nil {
-		t.Errorf("Couldn't get the bytes out of the PDU: %s", err)
-	}
-	_, err = Esme.clientSocket.Write(expectedBytes)
-	if err != nil {
+	err2 := Esme.bindTransmiter("SystemId", "Password")
+	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %s", err)
 	}
 	readBuf, err := AcceptNewConnectionAndReadFromSMSC(smsc)
 	if err != nil {
 		t.Errorf("Couldn't read on a newly established Connection: %v", err)
 	}
-	if bytes.Equal(readBuf, expectedBytes) {
+	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId("SystemId").WithPassword("Password"))
+	tempReadBuf := readBuf[0:len(expectedBuf)]
+	if !bytes.Equal(tempReadBuf, expectedBuf) || err != nil {
 		t.Errorf("We didn't receive what we sent")
 	}
 }

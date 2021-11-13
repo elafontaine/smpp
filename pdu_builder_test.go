@@ -1,6 +1,7 @@
 package smpp
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 )
@@ -210,6 +211,22 @@ func TestGenericNACK(t *testing.T){
 	t.Run("Constructor Pattern for DeliverSmResp ", func(t *testing.T) {
 		comparePdu(actualDeliverSmResp,expectedDeliverSmResp,t)
 	})
+}
+
+func TestPDUObjectsShouldBeDifferentInMemoryToAvoidSharedObjects(t *testing.T) {
+	NotTheExpectedPdu := NewBindTransmitter().WithSystemId("SystemId").WithPassword("Password")
+	expectedBuf, err := EncodePdu(NotTheExpectedPdu)
+	if err != nil {
+		t.Errorf("Couldn't make a simple PDU...")
+	}
+	actualPdu := NewBindTransmitter().WithSystemId("SystemID2")
+	actualBuf, err := EncodePdu(actualPdu)
+	if err != nil {
+		t.Errorf("Couldn't make a simple PDU...")
+	}
+	if bytes.Equal(actualBuf, expectedBuf){
+		t.Errorf("But PDUs are considered equal... something isn't working")
+	}
 }
 
 func comparePdu(actualPdu PDU, expectedPdu PDU, t *testing.T) {
