@@ -157,7 +157,7 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 				bodyBytes = append(bodyBytes, integerBuffer...)
 			}
 		} else {
-			err = fmt.Errorf("%v of submit_sm pdu missing, can't encode", mandatoryParam["name"].(string))
+			err = fmt.Errorf("%v of %v pdu missing, can't encode", mandatoryParam["name"].(string), obj.header.commandId)
 			return nil, err
 		}
 	}

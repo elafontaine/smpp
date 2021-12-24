@@ -45,6 +45,8 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 	}
 }
 
+
+// possibly some production functions... need to confirm with another tests maybe ?
 func AcceptNewConnectionAndReadFromSMSC(smsc SMSC) (readBuf []byte, err error) {
 	serverConnectionSocket, err := smsc.listeningSocket.Accept()
 	if err != nil {

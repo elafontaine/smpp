@@ -95,6 +95,15 @@ var missingBodySubmitSMPdu = PDU{
 	},
 	body: Body{},
 }
+var missingBodyDeliverSMPdu = PDU{
+	header: Header{
+		sequenceNumber: 1,
+		commandId:      "deliver_sm",
+		commandStatus:  ESME_ROK,
+		commandLength:  0,
+	},
+	body: Body{},
+}
 var missingBodySubmitSMPduButWithServiceType = PDU{
 	header: Header{
 		sequenceNumber: 1,
@@ -320,6 +329,7 @@ func TestInvalidPduEncodingCasesBody(t *testing.T) {
 		wantErr error
 	}{
 		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
+		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodyDeliverSMPdu}, errors.New("service_type of deliver_sm pdu missing, can't encode")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
