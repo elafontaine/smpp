@@ -94,6 +94,10 @@ func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]in
 
 // Encoding functions, only EncodePdu should be public
 func encodeBody(obj PDU) (bodyBytes []byte, err error) {
+	if obj.header.commandId == "" {
+		err = fmt.Errorf("PDU object malformed, missing headers")
+		return nil, err
+	}
 	var mandatoryParamsBytes []byte
 	var optionalParamsBytes []byte
 

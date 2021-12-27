@@ -116,6 +116,10 @@ var missingBodySubmitSMPduButWithServiceType = PDU{
 	},
 	},
 }
+var missingHeaderPdu = PDU{
+	header: Header{},
+	body: Body{},
+}
 
 func Test_parseHeaders(t *testing.T) {
 	type args struct {
@@ -307,12 +311,13 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 	}{
 		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
 		{"missingBodySubmitSMPduButWithServiceType raise mandatory fields are missings", args{missingBodySubmitSMPduButWithServiceType}, errors.New("source_addr_ton of submit_sm pdu missing, can't encode")},
+		{"missingHeader raise header missing error", args{missingHeaderPdu}, errors.New("PDU object malformed, missing headers")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := EncodePdu(tt.args.pdu_obj)
 			if err.Error() != tt.wantErr.Error() {
-				t.Errorf("parseHeader() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("EncodePdu() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})
@@ -329,13 +334,13 @@ func TestInvalidPduEncodingCasesBody(t *testing.T) {
 		wantErr error
 	}{
 		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
-		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodyDeliverSMPdu}, errors.New("service_type of deliver_sm pdu missing, can't encode")},
+		{"missingBodyDeliverSMPdu raise mandatory fields are missings", args{missingBodyDeliverSMPdu}, errors.New("service_type of deliver_sm pdu missing, can't encode")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := encodeBody(tt.args.pdu_obj)
 			if err.Error() != tt.wantErr.Error() {
-				t.Errorf("parseHeader() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("encodeBody() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})
