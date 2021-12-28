@@ -10,6 +10,7 @@ import (
 var invalidPduLength, _ = hex.DecodeString("0000001000")
 var pduLengthMissing, _ = hex.DecodeString("000000")
 var invalidCommandId, _ = hex.DecodeString("00000010000011150000000000000000")
+var invalidStatusId, _ = hex.DecodeString("0000001000000015008000ff00000000")
 var enquiryLinkFixture, _ = hex.DecodeString("00000010000000150000000000000000")
 var enquiryLinkRespFixture, _ = hex.DecodeString("00000010800000150000000000000000")
 var bindTransmitterFixture, _ = hex.DecodeString("0000001f000000020000000000000000746573740074657374000034000000")
@@ -210,6 +211,7 @@ func Test_parseHeaderInvalidPdu(t *testing.T) {
 		{"PduInvalidLength", args{bytes: pduLengthMissing}, errors.New("invalid length parameter")},
 		{"InvalidCommandId", args{bytes: invalidCommandId}, errors.New("unknown command_id 00001115")},
 		{"InvalidPdu", args{bytes: invalidPduLength}, errors.New("invalid PDU Length for pdu : 0000001000")},
+		{"Unknown status ID received", args{bytes: invalidStatusId }, errors.New("unknown command status 008000ff")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

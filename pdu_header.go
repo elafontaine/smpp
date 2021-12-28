@@ -47,7 +47,7 @@ func extractCommandStatus(bytes []byte) (string, error) {
 	if value, ok := commandStatusByHex[commandStatus]; ok {
 		return value["name"], nil
 	}
-	return "", fmt.Errorf("unknown command status %s", commandStatus)
+	return commandStatus, fmt.Errorf("unknown command status %s", commandStatus)
 }
 
 func extractCommandID(bytes []byte) (string, error) {

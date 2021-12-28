@@ -12,14 +12,12 @@ const (
 	connhost = "localhost"
 	connport = "0"
 	connType = "tcp"
+	validSystemID = "SystemId"
+	validPassword = "Password"
 )
 
 func TestServerInstantiationAndConnectClient(t *testing.T) {
-	serverSocket, err := net.Listen(connType, connhost+":"+connport)
-	if err != nil {
-		t.Errorf("couldn't start listening socket: %v", err)
-	}
-	smsc, err := StartSmscSimulatorServer(serverSocket)
+	smsc, err := StartSmscSimulatorServer()
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
 	}
@@ -38,7 +36,7 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 	if err != nil {
 		t.Errorf("Couldn't read on a newly established Connection: %v", err)
 	}
-	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId("SystemId").WithPassword("Password"))
+	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword))
 	tempReadBuf := readBuf[0:len(expectedBuf)]
 	if !bytes.Equal(tempReadBuf, expectedBuf) || err != nil {
 		t.Errorf("We didn't receive what we sent")
@@ -71,7 +69,8 @@ func InstantiateEsme(serverAddress net.Addr) (esme ESME, err error) {
 	return esme, err
 }
 
-func StartSmscSimulatorServer(serverSocket net.Listener) (smsc SMSC, err error) {
+func StartSmscSimulatorServer() (smsc SMSC, err error) {
+	serverSocket, err := net.Listen(connType, connhost+":"+connport)
 	smsc = SMSC{serverSocket}
 	return smsc, err
 }
