@@ -32,7 +32,7 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %s", err)
 	}
-	_, err = AcceptNewConnectionAndReadFromSMSC(&smsc)
+	err = smsc.AcceptNewConnectionFromSMSC()
 	readBuf, err2 := readFromConnection(smsc.connections[0])
 	if err != nil || err2 != nil{
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v", err, err2)
@@ -66,8 +66,8 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %s", err)
 	}
-	_, err = AcceptNewConnectionAndReadFromSMSC(&smsc)
-	_, err2 = AcceptNewConnectionAndReadFromSMSC(&smsc)
+	err = smsc.AcceptNewConnectionFromSMSC()
+	err2 = smsc.AcceptNewConnectionFromSMSC()
 
 	readBuf2, err3 := readFromConnection(smsc.connections[1])
 
@@ -85,23 +85,13 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 }
 
 func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_right_number bool){
-	if len(smsc.connections) == number_of_connections {
+	if smsc.GetNumberOfConnection() == number_of_connections {
 		return true
 	} else {
 		return false
 	}
 }
 
-// possibly some production functions... need to confirm with another tests maybe ?
-func AcceptNewConnectionAndReadFromSMSC(smsc *SMSC) (readBuf []byte, err error) {
-	serverConnectionSocket, err := smsc.listeningSocket.Accept()
-	if err != nil {
-		err = fmt.Errorf("Couldn't establish connection on the server side successfully: %v", err)
-		return nil, err
-	}
-	smsc.connections = append(smsc.connections, serverConnectionSocket)
-	return readBuf, err
-}
 
 func readFromConnection(serverConnectionSocket net.Conn) ([]byte, error) {
 	readBuf := make([]byte, 4096)
