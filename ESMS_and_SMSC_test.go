@@ -2,7 +2,6 @@ package smpp
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -44,6 +43,7 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 	}
 }
 
+
 func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	smsc, err := StartSmscSimulatorServer()
 	if err != nil {
@@ -84,6 +84,39 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	}
 }
 
+func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
+	smsc, err := StartSmscSimulatorServer()
+	if err != nil {
+		t.Errorf("failed to start listening socket: %v", err)
+	}
+	
+	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr())
+	if err != nil {
+		t.Errorf("couldn't connect client to server successfully: %v", err)
+	}
+	defer Esme.Close()
+	_ = smsc.AcceptNewConnectionFromSMSC()
+
+	smsc.Close()
+
+	assertListenerIsClosed(smsc, t)
+	assertAllRemainingConnectionsAreClosed(smsc, t)
+}
+
+func assertAllRemainingConnectionsAreClosed(smsc SMSC, t *testing.T) {
+	for _, conn := range smsc.connections {
+		if err:= conn.Close(); err == nil {
+			t.Errorf("At least one connection wasn't closed! %v", err)
+		}
+	}
+}
+
+func assertListenerIsClosed(smsc SMSC, t *testing.T) {
+	if err:= smsc.listeningSocket.Close(); err == nil {
+		t.Errorf("The listening socket wasn't closed! %v", err)
+	}
+}
+
 func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_right_number bool){
 	if smsc.GetNumberOfConnection() == number_of_connections {
 		return true
@@ -111,7 +144,6 @@ func InstantiateEsme(serverAddress net.Addr) (esme ESME, err error) {
 
 func StartSmscSimulatorServer() (smsc SMSC, err error) {
 	serverSocket, err := net.Listen(connType, connhost+":"+connport)
-	conns := []net.Conn{}
-	smsc = SMSC{serverSocket, conns}
+	smsc = NewSMSC(&serverSocket)
 	return smsc, err
 }

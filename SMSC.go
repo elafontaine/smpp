@@ -10,8 +10,8 @@ type SMSC struct {
 	connections []net.Conn
 }
 
-func NewSMSC(listeningSocket net.Listener) (s *SMSC) {
-	s = &SMSC{listeningSocket: listeningSocket, connections: []net.Conn{}}
+func NewSMSC(listeningSocket *net.Listener) (s SMSC) {
+	s = SMSC{listeningSocket: *listeningSocket, connections: []net.Conn{}}
 	return s
 }
 
@@ -30,5 +30,8 @@ func (s SMSC) GetNumberOfConnection() int {
 }
 
 func (s SMSC) Close() {
+	for _, conn := range s.connections {
+		conn.Close()
+	}
 	s.listeningSocket.Close()
 }
