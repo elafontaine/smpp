@@ -33,7 +33,7 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 		t.Errorf("Couldn't write to the socket PDU: %s", err)
 	}
 	err = smsc.AcceptNewConnectionFromSMSC()  
-	readBuf, err2 := readFromConnection(smsc.connections[0])
+	readBuf, err2 := readFromConnection(smsc.connections.Load().([]net.Conn)[0])
 	if err != nil || err2 != nil{
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v", err, err2)
 	}
@@ -70,7 +70,7 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	err = smsc.AcceptNewConnectionFromSMSC()
 	err2 = smsc.AcceptNewConnectionFromSMSC()
 
-	readBuf2, err3 := readFromConnection(smsc.connections[1])
+	readBuf2, err3 := readFromConnection(smsc.connections.Load().([]net.Conn)[1])
 
 	if err != nil || err2 != nil || err3 != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v\n err3 =%v", err, err2, err3)
@@ -107,10 +107,10 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %s", err)
 	}
-	for len(smsc.connections) < 2 {
+	for smsc.GetNumberOfConnection() < 2 {
 		time.Sleep(100 * time.Millisecond)
 	}
-	readBuf2, err3 := readFromConnection(smsc.connections[1])
+	readBuf2, err3 := readFromConnection(smsc.connections.Load().([]net.Conn)[1])
 
 	if err != nil || err2 != nil || err3 != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v\n err3 =%v", err, err2, err3)
@@ -147,7 +147,7 @@ func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
 }
 
 func assertAllRemainingConnectionsAreClosed(smsc *SMSC, t *testing.T) {
-	for _, conn := range smsc.connections {
+	for _, conn := range smsc.connections.Load().([]net.Conn) {
 		if err:= conn.Close(); err == nil {
 			t.Errorf("At least one connection wasn't closed! %v", err)
 		}
