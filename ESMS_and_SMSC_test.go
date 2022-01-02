@@ -2,10 +2,10 @@ package smpp
 
 import (
 	"bytes"
-	"fmt"
 	"net"
 	"testing"
 	"time"
+	"log"
 )
 
 const (
@@ -201,7 +201,7 @@ func (s *SMSC) AcceptAllNewConnection() {
 	for s.State != "CLOSED" {
 		err := s.AcceptNewConnectionFromSMSC()
 		if err != nil {
-			println(fmt.Errorf("SMSC wasn't able to accept a new connection: %v",err))
+			log.Printf("SMSC wasn't able to accept a new connection: %v",err)
 		}
 	}
 }
