@@ -17,25 +17,21 @@ const (
 )
 
 func TestServerInstantiationAndConnectClient(t *testing.T) {
-	smsc, err := StartSmscSimulatorServer()
-	if err != nil {
-		t.Errorf("couldn't start server successfully: %v", err)
-	}
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 	defer smsc.Close()
-
-	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr())
-	if err != nil {
-		t.Errorf("couldn't connect client to server successfully: %v", err)
-	}
 	defer Esme.Close()
-	err2 := Esme.bindTransmiter("SystemId", "Password")  //Should we expect the bind_transmitter to return only when the bind is done and valid? 
-	if err2 != nil {
-		t.Errorf("Couldn't write to the socket PDU: %s", err)
+
+	LastError := Esme.bindTransmiter("SystemId", "Password")  //Should we expect the bind_transmitter to return only when the bind is done and valid? 
+	if LastError != nil {
+		t.Errorf("Couldn't write to the socket PDU: %s", LastError)
 	}
-	err = smsc.AcceptNewConnectionFromSMSC()  
-	readBuf, err2 := readFromConnection(smsc.connections.Load().([]net.Conn)[0])
-	if err != nil || err2 != nil{
-		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v", err, err2)
+	LastError = smsc.AcceptNewConnectionFromSMSC()
+	if  LastError != nil {
+		t.Errorf("Couldn't get a Connection: \n err =%v", LastError)
+	}
+	readBuf, LastError := readFromConnection(smsc.connections.Load().([]net.Conn)[0])
+	if LastError != nil{
+		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
 	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword))
 	tempReadBuf := readBuf[0:len(expectedBuf)]
@@ -45,18 +41,12 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 }
 
 
-func TestCanWeConnectTwiceToSMSC(t *testing.T) {
-	smsc, err := StartSmscSimulatorServer()
-	if err != nil {
-		t.Errorf("couldn't start server successfully: %v", err)
-	}
-	defer smsc.Close()
 
-	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr())
-	if err != nil {
-		t.Errorf("couldn't connect client to server successfully: %v", err)
-	}
+
+func TestCanWeConnectTwiceToSMSC(t *testing.T) {
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 	defer Esme.Close()
+	defer smsc.Close()
 
 	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr()) 
 	if err != nil {
@@ -86,17 +76,9 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 }
 
 func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
-	smsc, err := StartSmscSimulatorServerAndAccept()
-	if err != nil {
-		t.Errorf("couldn't start server successfully: %v", err)
-	}
-	defer smsc.Close()
-
-	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr())
-	if err != nil {
-		t.Errorf("couldn't connect client to server successfully: %v", err)
-	}
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 	defer Esme.Close()
+	defer smsc.Close()
 
 	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr()) 
 	if err != nil {
@@ -128,16 +110,9 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 
 
 func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
-	smsc, err := StartSmscSimulatorServer()
-	if err != nil {
-		t.Errorf("failed to start listening socket: %v", err)
-	}
-	
-	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr())
-	if err != nil {
-		t.Errorf("couldn't connect client to server successfully: %v", err)
-	}
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 	defer Esme.Close()
+	defer smsc.Close()
 	_ = smsc.AcceptNewConnectionFromSMSC()
 
 	smsc.Close()
@@ -204,4 +179,16 @@ func (s *SMSC) AcceptAllNewConnection() {
 			log.Printf("SMSC wasn't able to accept a new connection: %v",err)
 		}
 	}
+}
+
+func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, error, ESME) {
+	smsc, err := StartSmscSimulatorServer()
+	if err != nil {
+		t.Errorf("couldn't start server successfully: %v", err)
+	}
+	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr())
+	if err != nil {
+		t.Errorf("couldn't connect client to server successfully: %v", err)
+	}
+	return smsc, err, Esme
 }
