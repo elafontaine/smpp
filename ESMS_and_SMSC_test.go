@@ -2,6 +2,8 @@ package smpp
 
 import (
 	"bytes"
+	"encoding/binary"
+	"fmt"
 	"log"
 	"net"
 	"testing"
@@ -16,7 +18,7 @@ const (
 	validPassword = "Password"
 )
 
-func TestServerInstantiationAndConnectClient(t *testing.T) {
+func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 	defer smsc.Close()
 	defer Esme.Close()
@@ -25,15 +27,21 @@ func TestServerInstantiationAndConnectClient(t *testing.T) {
 	if LastError != nil {
 		t.Errorf("Couldn't write to the socket PDU: %s", LastError)
 	}
+	Pdu, _ := EncodePdu(NewSubmitSM())
+	_, LastError = Esme.clientSocket.Write(Pdu)
+	if LastError != nil { t.Errorf("Error writing : %v", LastError)}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
-	readBuf, LastError := readFromConnection(smsc.connections.Load().([]net.Conn)[0])
+	readBuf, LastError := readPduBytesFromConnection(smsc.connections.Load().([]net.Conn)[0], time.Now().Add(1 * time.Second))
 	if LastError != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
 	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword))
-	tempReadBuf := readBuf[0:len(expectedBuf)]
-	if !bytes.Equal(tempReadBuf, expectedBuf) || err != nil {
-		t.Errorf("We didn't receive what we sent")
+	if !bytes.Equal(readBuf, expectedBuf) || err != nil {
+		t.Errorf("We didn't receive the first PDU we sent")
+	}
+	readSecondPdu, LastError := readPduBytesFromConnection(smsc.connections.Load().([]net.Conn)[0], time.Now().Add(1 * time.Second))
+	if !bytes.Equal(readSecondPdu,Pdu) || LastError != nil {
+		t.Errorf("We didn't read the second PFU we sent correctly")
 	}
 }
 
@@ -49,7 +57,7 @@ func TestESMEIsBound(t *testing.T) {
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
 	smsc_connection := smsc.connections.Load().([]net.Conn)[0]
 	handleBindOperation(smsc_connection, t)
-	esmeReceivedBuf, err := readFromConnection(Esme.clientSocket)
+	esmeReceivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1 * time.Second))
 	if err != nil {
 		t.Errorf("Couldn't receive on the response on the ESME")
 	}
@@ -78,7 +86,7 @@ func TestEsmeCanBindWithSmscAsAReceiver(t *testing.T) {
 		t.Errorf("Couldn't write to the socket PDU: %s", LastError)
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
-	readBuf, LastError := readFromConnection(smsc.connections.Load().([]net.Conn)[0])
+	readBuf, LastError := readPduBytesFromConnection(smsc.connections.Load().([]net.Conn)[0], time.Now().Add(1 * time.Second))
 	if LastError != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
@@ -105,7 +113,7 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 2)
 
-	readBuf2, err3 := readFromConnection(smsc.connections.Load().([]net.Conn)[1])
+	readBuf2, err3 := readPduBytesFromConnection(smsc.connections.Load().([]net.Conn)[1], time.Now().Add(1 * time.Second))
 
 	if err != nil || err2 != nil || err3 != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v\n err3 =%v", err, err2, err3)
@@ -136,7 +144,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 2)
 
-	readBuf2, err3 := readFromConnection(smsc.connections.Load().([]net.Conn)[1])
+	readBuf2, err3 := readPduBytesFromConnection(smsc.connections.Load().([]net.Conn)[1], time.Now().Add(1 * time.Second))
 
 	if err != nil || err2 != nil || err3 != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v\n err3 =%v", err, err2, err3)
@@ -186,14 +194,26 @@ func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_ri
 	}
 }
 
-func readFromConnection(ConnectionSocket net.Conn) ([]byte, error) {
-	readBuf := make([]byte, 4096)
-	err := ConnectionSocket.SetDeadline(time.Now().Add(1 * time.Second))
+func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([]byte, error) {
+	buffer := bytes.Buffer{}
+	err := ConnectionSocket.SetDeadline(timeout)
 	if err != nil {
 		return nil, err
 	}
-	_, err = ConnectionSocket.Read(readBuf)
-	return readBuf, err
+	readLengthBuffer := make([]byte,4)
+	_, err = ConnectionSocket.Read(readLengthBuffer)
+	if err == nil {
+		length := int(binary.BigEndian.Uint32(readLengthBuffer))
+		if length <= 4 {
+			return nil, fmt.Errorf("Received malformed packet : %v", readLengthBuffer)
+		}
+		readBuf := make([]byte, length-4)
+		_, err = ConnectionSocket.Read(readBuf)
+		buffer.Write(readLengthBuffer)
+		buffer.Write(readBuf)
+	}
+	
+	return buffer.Bytes(), err
 }
 
 func InstantiateEsme(serverAddress net.Addr) (esme ESME, err error) {
@@ -242,13 +262,12 @@ func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
 }
 
 func handleBindOperation(smsc_connection net.Conn, t *testing.T) {
-	readBuf, LastError := readFromConnection(smsc_connection)
+	readBuf, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1 * time.Second))
 	if LastError != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
 	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword))
-	tempReadBuf := readBuf[0:len(expectedBuf)]
-	if !bytes.Equal(tempReadBuf, expectedBuf) || err != nil {
+	if !bytes.Equal(readBuf, expectedBuf) || err != nil {
 		t.Errorf("We didn't receive what we sent")
 	}
 	bindResponse, err := EncodePdu(NewBindTransmitterResp().WithSystemId(validSystemID))
