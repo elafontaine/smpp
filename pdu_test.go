@@ -148,6 +148,7 @@ func Test_parseHeaders(t *testing.T) {
 }
 
 func Test_parsePduBody(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		bytes  []byte
 		header Header
@@ -175,6 +176,7 @@ func Test_parsePduBody(t *testing.T) {
 }
 
 func Test_parsePdu(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		bytes []byte
 	}
@@ -200,6 +202,7 @@ func Test_parsePdu(t *testing.T) {
 }
 
 func Test_parseHeaderInvalidPdu(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		bytes []byte
 	}
@@ -225,6 +228,7 @@ func Test_parseHeaderInvalidPdu(t *testing.T) {
 }
 
 func TestEncodePdu(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		pdu_obj PDU
 	}
@@ -253,6 +257,7 @@ func TestEncodePdu(t *testing.T) {
 }
 
 func Test_encodeSpecificOptionalParameter(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		optionalParam map[string]interface{}
 	}
@@ -281,6 +286,7 @@ func Test_encodeSpecificOptionalParameter(t *testing.T) {
 }
 
 func Test_extractOptionalParameters(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		optionalParameterBytes []byte
 	}
@@ -303,6 +309,7 @@ func Test_extractOptionalParameters(t *testing.T) {
 }
 
 func TestInvalidPduEncodingCases(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		pdu_obj PDU
 	}
@@ -327,6 +334,7 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 }
 
 func TestInvalidPduEncodingCasesBody(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		pdu_obj PDU
 	}

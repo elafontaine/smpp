@@ -1,9 +1,12 @@
 package smpp
 
-import "net"
+import (
+	"net"
+)
 
 type ESME struct {
 	clientSocket net.Conn
+	state string
 }
 
 func (e ESME) Close() {
@@ -29,4 +32,8 @@ func (e ESME) bindReceiver(systemID, password string) error {  //Should we expec
 	}
 	_, err = e.clientSocket.Write(expectedBytes)
 	return err
+}
+
+func (e ESME) getConnectionState() (state string) {
+		return e.state
 }

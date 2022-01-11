@@ -7,6 +7,7 @@ import (
 )
 
 func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
+	t.Parallel()
 	defaultBindTransmitter := PDU{
 		header: Header{
 			0,
@@ -35,6 +36,7 @@ func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 }
 
 func TestDefaultValueForNewBindReceiver(t *testing.T) {
+	t.Parallel()
 
 	defaultBindReceiver := PDU{
 		header: Header{
@@ -54,6 +56,7 @@ func TestDefaultValueForNewBindReceiver(t *testing.T) {
 }
 
 func TestDefaultValueForNewBindTransceiver(t *testing.T) {
+	t.Parallel()
 
 	defaultBindTransceiver := PDU{
 		header: Header{
@@ -71,6 +74,7 @@ func TestDefaultValueForNewBindTransceiver(t *testing.T) {
 }
 
 func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
+	t.Parallel()
 	expectedBindTransmitterObj := bindTransmitterObj
 	expectedBindTransmitterObj.body = defaultBindBody()
 	expectedBindTransmitterObj.body.mandatoryParameter["address_range"] = "44601"
@@ -99,7 +103,46 @@ func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
 	})
 }
 
+func TestNewBindTransmitterResp(t *testing.T) {
+	t.Parallel()
+	expectedBindTransmitterResp := bindTransmitterRespObj
+	expectedBindTransmitterResp.header.commandLength = 0
+	
+	actualResponse := NewBindTransmitterResp().WithSystemId("test")
+	t.Run("instantiating bind_transmitter_resp", func(t *testing.T) {
+		comparePdu(actualResponse,
+		expectedBindTransmitterResp,t)
+	})
+}
+
+func TestNewBindTransceiverResp(t *testing.T) {
+	t.Parallel()
+	expectedBindTransceiverResp := bindTransmitterRespObj
+	expectedBindTransceiverResp.header.commandLength = 0
+	expectedBindTransceiverResp.header.commandId = "bind_transceiver_resp"
+	
+	actualResponse := NewBindTransceiverResp().WithSystemId("test")
+	t.Run("instantiating bind_transceiver_resp", func(t *testing.T) {
+		comparePdu(actualResponse,
+		expectedBindTransceiverResp,t)
+	})
+}
+
+func TestNewBindReceiverResp(t *testing.T) {
+	t.Parallel()
+	expectedBindReceiverResp := bindTransmitterRespObj
+	expectedBindReceiverResp.header.commandLength = 0
+	expectedBindReceiverResp.header.commandId = "bind_receiver_resp"
+	
+	actualResponse := NewBindReceiverResp().WithSystemId("test")
+	t.Run("instantiating bind_receiver_resp", func(t *testing.T) {
+		comparePdu(actualResponse,
+		expectedBindReceiverResp,t)
+	})
+}
+
 func TestSubmitSMDefaultValues(t *testing.T){
+	t.Parallel()
 	defaultSubmitSMObj := PDU{
 		header: Header{
 			commandLength: 0,
@@ -116,6 +159,7 @@ func TestSubmitSMDefaultValues(t *testing.T){
 
 
 func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
+	t.Parallel()
 	expectedSubmitSm := submitSmObj
 	expectedSubmitSm.body = defaultSubmitSmBody()
 	expectedSubmitSm.body.mandatoryParameter["source_addr"] = "1234"
@@ -145,6 +189,7 @@ func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 }
 
 func TestDeliverSmInstantiation(t *testing.T) {
+	t.Parallel()
 	expectedDeliverSM := deliverSmObj
 	expectedDeliverSM.body = defaultSubmitSmBody()
 	expectedDeliverSM.header.commandLength = 0
@@ -158,6 +203,7 @@ func TestDeliverSmInstantiation(t *testing.T) {
 }
 
 func TestDataSmInstantiation(t *testing.T) {
+	t.Parallel()
 	expectedDataSm := dataSmObj
 	expectedDataSm.body = defaultSubmitSmBody()
 	expectedDataSm.header.commandLength = 0
@@ -171,6 +217,7 @@ func TestDataSmInstantiation(t *testing.T) {
 }
 
 func TestSubmitSmRespInstantiation(t *testing.T){
+	t.Parallel()
 	expectedSubmitSmResp := submitSmRespObj
 	expectedSubmitSmResp.header.commandLength = 0
 	expectedSubmitSmResp.header.sequenceNumber = 0
@@ -184,6 +231,7 @@ func TestSubmitSmRespInstantiation(t *testing.T){
 }
 
 func TestDeliverSmRespInstantiation(t *testing.T){
+	t.Parallel()
 	expectedDeliverSmResp := deliverSmRespObj
 	expectedDeliverSmResp.header.commandLength = 0
 	expectedDeliverSmResp.header.sequenceNumber = 0
@@ -202,6 +250,7 @@ func TestDeliverSmRespInstantiation(t *testing.T){
 }
 
 func TestGenericNACK(t *testing.T){
+	t.Parallel()
 	expectedDeliverSmResp := PDU{header: generickNackHeader}
 	expectedDeliverSmResp.header.commandLength = 0
 	expectedDeliverSmResp.header.sequenceNumber = 0
@@ -214,6 +263,7 @@ func TestGenericNACK(t *testing.T){
 }
 
 func TestPDUObjectsShouldBeDifferentInMemoryToAvoidSharedObjects(t *testing.T) {
+	t.Parallel()
 	NotTheExpectedPdu := NewBindTransmitter().WithSystemId("SystemId").WithPassword("Password")
 	expectedBuf, err := EncodePdu(NotTheExpectedPdu)
 	if err != nil {
@@ -232,10 +282,10 @@ func TestPDUObjectsShouldBeDifferentInMemoryToAvoidSharedObjects(t *testing.T) {
 func comparePdu(actualPdu PDU, expectedPdu PDU, t *testing.T) {
 	if got := actualPdu; !reflect.DeepEqual(got, expectedPdu) {
 		if !reflect.DeepEqual(got.header, expectedPdu.header) {
-			t.Errorf("Difference in the header strucutre")
+			t.Errorf("Difference in the header structure")
 		}
 		if !reflect.DeepEqual(got.body, expectedPdu.body) {
-			t.Errorf("Difference in the body strucutre")
+			t.Errorf("Difference in the body structure")
 		}
 		t.Errorf("The constructor pattern isn't creating the expected PDU object! %v, want %v", got, expectedPdu)
 	}

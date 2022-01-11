@@ -44,6 +44,45 @@ func NewBindTransceiver() PDU {
 	return PDU{header: header, body: body}
 }
 
+func NewBindTransmitterResp() PDU{
+	header := Header{
+		commandLength: 0,
+		commandId: "bind_transmitter_resp",
+		commandStatus: ESME_ROK,
+		sequenceNumber: 0,
+	}
+	body := Body{
+		mandatoryParameter: map[string]interface{}{},
+	}
+	return PDU{header: header, body: body}
+}
+
+func NewBindTransceiverResp() PDU {
+	header := Header{
+		commandLength: 0,
+		commandId: "bind_transceiver_resp",
+		commandStatus: ESME_ROK,
+		sequenceNumber: 0,
+	}
+	body := Body{
+		mandatoryParameter: map[string]interface{}{},
+	}
+	return PDU{header: header, body: body}
+}
+
+func NewBindReceiverResp() PDU {
+	header := Header{
+		commandLength: 0,
+		commandId: "bind_receiver_resp",
+		commandStatus: ESME_ROK,
+		sequenceNumber: 0,
+	}
+	body := Body{
+		mandatoryParameter: map[string]interface{}{},
+	}
+	return PDU{header: header, body: body}
+}
+
 func NewSubmitSM() PDU {
 	header := Header{
 		commandLength:  0,
