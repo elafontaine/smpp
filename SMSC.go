@@ -8,8 +8,8 @@ import (
 
 type SMSC struct {
 	listeningSocket net.Listener
-	connections atomic.Value
-	State string
+	connections     atomic.Value
+	State           string
 }
 
 func NewSMSC(listeningSocket *net.Listener) (s *SMSC) {

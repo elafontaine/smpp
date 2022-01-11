@@ -44,11 +44,11 @@ func NewBindTransceiver() PDU {
 	return PDU{header: header, body: body}
 }
 
-func NewBindTransmitterResp() PDU{
+func NewBindTransmitterResp() PDU {
 	header := Header{
-		commandLength: 0,
-		commandId: "bind_transmitter_resp",
-		commandStatus: ESME_ROK,
+		commandLength:  0,
+		commandId:      "bind_transmitter_resp",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := Body{
@@ -59,9 +59,9 @@ func NewBindTransmitterResp() PDU{
 
 func NewBindTransceiverResp() PDU {
 	header := Header{
-		commandLength: 0,
-		commandId: "bind_transceiver_resp",
-		commandStatus: ESME_ROK,
+		commandLength:  0,
+		commandId:      "bind_transceiver_resp",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := Body{
@@ -72,9 +72,9 @@ func NewBindTransceiverResp() PDU {
 
 func NewBindReceiverResp() PDU {
 	header := Header{
-		commandLength: 0,
-		commandId: "bind_receiver_resp",
-		commandStatus: ESME_ROK,
+		commandLength:  0,
+		commandId:      "bind_receiver_resp",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := Body{
@@ -96,28 +96,28 @@ func NewSubmitSM() PDU {
 
 func NewSubmitSMResp() PDU {
 	header := Header{
-		commandLength: 0,
-		commandId: "submit_sm_resp",
-		commandStatus: ESME_ROK,
+		commandLength:  0,
+		commandId:      "submit_sm_resp",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := Body{
 		mandatoryParameter: map[string]interface{}{},
 	}
-	return PDU{header: header,body: body}
+	return PDU{header: header, body: body}
 }
 
 func NewDeliverSMResp() PDU {
 	header := Header{
-		commandLength: 0,
-		commandId: "deliver_sm_resp",
-		commandStatus: ESME_ROK,
+		commandLength:  0,
+		commandId:      "deliver_sm_resp",
+		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
 	body := Body{
 		mandatoryParameter: map[string]interface{}{},
 	}
-	return PDU{header: header,body: body}
+	return PDU{header: header, body: body}
 }
 
 func NewDeliverSM() PDU {
@@ -262,12 +262,12 @@ func (p PDU) WithMessage(s string) PDU {
 	return p
 }
 
-func (p PDU) WithMessageId( id string) PDU {
+func (p PDU) WithMessageId(id string) PDU {
 	p.body.mandatoryParameter["message_id"] = id
 	return p
 }
 
-func (p PDU) withSMPPError( id string) PDU {
+func (p PDU) withSMPPError(id string) PDU {
 	p.header.commandStatus = id
 	return p
 }

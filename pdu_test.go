@@ -119,7 +119,7 @@ var missingBodySubmitSMPduButWithServiceType = PDU{
 }
 var missingHeaderPdu = PDU{
 	header: Header{},
-	body: Body{},
+	body:   Body{},
 }
 
 func Test_parseHeaders(t *testing.T) {
@@ -214,7 +214,7 @@ func Test_parseHeaderInvalidPdu(t *testing.T) {
 		{"PduInvalidLength", args{bytes: pduLengthMissing}, errors.New("invalid length parameter")},
 		{"InvalidCommandId", args{bytes: invalidCommandId}, errors.New("unknown command_id 00001115")},
 		{"InvalidPdu", args{bytes: invalidPduLength}, errors.New("invalid PDU Length for pdu : 0000001000")},
-		{"Unknown status ID received", args{bytes: invalidStatusId }, errors.New("unknown command status 008000ff")},
+		{"Unknown status ID received", args{bytes: invalidStatusId}, errors.New("unknown command status 008000ff")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
