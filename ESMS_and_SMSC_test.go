@@ -19,7 +19,7 @@ const (
 )
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme ,_ := ConnectEsmeAndSmscTogether(t)
 	defer smsc.Close()
 	defer Esme.Close()
 
@@ -32,7 +32,6 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	if LastError != nil {
 		t.Errorf("Error writing : %v", LastError)
 	}
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
 	readBuf, LastError := readPduBytesFromConnection(smsc.connections.Load().([]net.Conn)[0], time.Now().Add(1*time.Second))
 	if LastError != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
@@ -48,7 +47,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 }
 
 func TestESMEIsBound(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
 	defer smsc.Close()
 	defer Esme.Close()
 
@@ -56,8 +55,6 @@ func TestESMEIsBound(t *testing.T) {
 	if LastError != nil {
 		t.Errorf("Couldn't write to the socket PDU: %s", LastError)
 	}
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
-	smsc_connection := smsc.connections.Load().([]net.Conn)[0]
 	handleBindOperation(smsc_connection, t)
 	esmeReceivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
 	if err != nil {
@@ -79,7 +76,7 @@ func TestESMEIsBound(t *testing.T) {
 }
 
 func TestEsmeCanBindWithSmscAsAReceiver(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	smsc, smsc_connection, Esme , _ := ConnectEsmeAndSmscTogether(t)
 	defer smsc.Close()
 	defer Esme.Close()
 
@@ -87,8 +84,6 @@ func TestEsmeCanBindWithSmscAsAReceiver(t *testing.T) {
 	if LastError != nil {
 		t.Errorf("Couldn't write to the socket PDU: %s", LastError)
 	}
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
-	smsc_connection := smsc.connections.Load().([]net.Conn)[0]
 	handleBindOperation(smsc_connection, t)
 	esmeReceivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
 	if err != nil {
@@ -109,7 +104,7 @@ func TestEsmeCanBindWithSmscAsAReceiver(t *testing.T) {
 }
 
 func TestCanWeConnectTwiceToSMSC(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
 	defer Esme.Close()
 	defer smsc.Close()
 
@@ -140,7 +135,7 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 }
 
 func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
 	defer Esme.Close()
 	defer smsc.Close()
 
@@ -171,11 +166,9 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 }
 
 func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme , _ := ConnectEsmeAndSmscTogether(t)
 	defer Esme.Close()
 	defer smsc.Close()
-
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
 
 	smsc.Close()
 
@@ -254,7 +247,7 @@ func (s *SMSC) AcceptAllNewConnection() {
 	}
 }
 
-func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, error, ESME) {
+func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, ESME, error) {
 	smsc, err := StartSmscSimulatorServerAndAccept()
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
@@ -263,7 +256,9 @@ func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, error, ESME) {
 	if err != nil {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
-	return smsc, err, Esme
+	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
+	smsc_connection := smsc.connections.Load().([]net.Conn)[0] 
+	return smsc, smsc_connection, Esme, err
 }
 
 func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
