@@ -25,7 +25,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 
 	LastError := Esme.bindTransmiter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if LastError != nil {
-		t.Errorf("Couldn't write to the socket PDU: %s", LastError)
+		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 	}
 	Pdu, _ := EncodePdu(NewSubmitSM())
 	_, LastError = Esme.clientSocket.Write(Pdu)
@@ -53,7 +53,7 @@ func TestESMEIsBound(t *testing.T) {
 
 	LastError := Esme.bindTransmiter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if LastError != nil {
-		t.Errorf("Couldn't write to the socket PDU: %s", LastError)
+		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 	}
 	handleBindOperation(smsc_connection, t)
 	esmeReceivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
@@ -65,11 +65,11 @@ func TestESMEIsBound(t *testing.T) {
 		t.Errorf("Couldn't parse received PDU")
 	}
 	if resp.header.commandStatus == ESME_ROK && resp.header.commandId == "bind_transmitter_resp" {
-		Esme.state = "BOUND_TX"
+		Esme.state = BOUND_TX
 	} else {
 		t.Errorf("The answer received wasn't OK!")
 	}
-	if state := Esme.getConnectionState(); state != "BOUND_TX" {
+	if state := Esme.getConnectionState(); state != BOUND_TX {
 		t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, err)
 	}
 
@@ -82,25 +82,33 @@ func TestEsmeCanBindWithSmscAsAReceiver(t *testing.T) {
 
 	LastError := Esme.bindReceiver("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if LastError != nil {
-		t.Errorf("Couldn't write to the socket PDU: %s", LastError)
+		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 	}
 	handleBindOperation(smsc_connection, t)
+	err := handleBindResponse(&Esme)
+	if err != nil {
+		t.Errorf("Error handling the answer from SMSC : %v", err)
+	}
+	if state := Esme.getConnectionState(); state != BOUND_RX {
+		t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, err)
+	}
+}
+
+func handleBindResponse(Esme *ESME) error {
 	esmeReceivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
 	if err != nil {
-		t.Errorf("Couldn't receive on the response on the ESME")
+		return err
 	}
 	resp, err := ParsePdu(esmeReceivedBuf)
 	if err != nil {
-		t.Errorf("Couldn't parse received PDU")
+		return err
 	}
 	if resp.header.commandStatus == ESME_ROK && resp.header.commandId == "bind_receiver_resp" {
-		Esme.state = "BOUND_RX"
+		Esme.state = BOUND_RX
 	} else {
-		t.Errorf("The answer received wasn't OK or not the type we expected!")
+		err = fmt.Errorf("The answer received wasn't OK or not the type we expected!")
 	}
-	if state := Esme.getConnectionState(); state != "BOUND_RX" {
-		t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, err)
-	}
+	return err
 }
 
 func TestCanWeConnectTwiceToSMSC(t *testing.T) {
@@ -115,7 +123,7 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	defer Esme2.Close()
 	err2 := Esme2.bindTransmiter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if err2 != nil {
-		t.Errorf("Couldn't write to the socket PDU: %s", err)
+		t.Errorf("Couldn't write to the socket PDU: %v", err)
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 2)
 
@@ -146,7 +154,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	defer Esme2.Close()
 	err2 := Esme2.bindTransmiter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if err2 != nil {
-		t.Errorf("Couldn't write to the socket PDU: %s", err)
+		t.Errorf("Couldn't write to the socket PDU: %v", err)
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 2)
 
@@ -243,6 +251,7 @@ func (s *SMSC) AcceptAllNewConnection() {
 		err := s.AcceptNewConnectionFromSMSC()
 		if err != nil {
 			log.Printf("SMSC wasn't able to accept a new connection: %v", err)
+			break
 		}
 	}
 }

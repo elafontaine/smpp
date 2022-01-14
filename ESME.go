@@ -9,6 +9,10 @@ type ESME struct {
 	state        string
 }
 
+const BOUND_TX = "BOUND_TX"
+const BOUND_RX = "BOUND_RX"
+const BOUND_TRX = "BOUND_TRX"
+
 func (e ESME) Close() {
 	e.clientSocket.Close()
 }
