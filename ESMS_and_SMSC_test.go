@@ -2,8 +2,6 @@ package smpp
 
 import (
 	"bytes"
-	"encoding/binary"
-	"fmt"
 	"log"
 	"net"
 	"testing"
@@ -46,70 +44,41 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	}
 }
 
-func TestESMEIsBound(t *testing.T) {
-	smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
-	defer smsc.Close()
-	defer Esme.Close()
+func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
+	type args struct {
+		bind_pdu *PDU
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantBoundAs string
+	}{
+		{"TestEsmeCanBindWithSmscAsAReceiver", args{func() *PDU { pdu := NewBindReceiver(); return &pdu }()}, BOUND_RX},
+		{"TestEsmeCanBindWithSmscAsAReceiver", args{func() *PDU { pdu := NewBindTransmitter(); return &pdu }()}, BOUND_TX},
+		{"TestEsmeCanBindWithSmscAsAReceiver", args{func() *PDU { pdu := NewBindTransceiver(); return &pdu }()}, BOUND_TRX},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
+			defer smsc.Close()
+			defer Esme.Close()
+		
+			pdu := tt.args.bind_pdu.WithSystemId(validSystemID).WithPassword(validPassword)
+			LastError := Esme.bind(&pdu) //Should we expect the bind_transmitter to return only when the bind is done and valid?
+			if LastError != nil {
+				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
+			}
+			handleBindOperation(smsc_connection, t)
+			err := handleBindResponse(&Esme)
+			if err != nil {
+				t.Errorf("Error handling the answer from SMSC : %v", err)
+			}
+			if state := Esme.getConnectionState(); state != tt.wantBoundAs {
+				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, err)
+			}
+		})
+	}
 
-	LastError := Esme.bindTransmiter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
-	if LastError != nil {
-		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
-	}
-	handleBindOperation(smsc_connection, t)
-	err := handleBindResponse(&Esme)
-	if err != nil {
-		t.Errorf("Error handling the answer from SMSC : %v", err)
-	}
-	if state := Esme.getConnectionState(); state != BOUND_TX {
-		t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, err)
-	}
-
-}
-
-func TestEsmeCanBindWithSmscAsAReceiver(t *testing.T) {
-	smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
-	defer smsc.Close()
-	defer Esme.Close()
-
-	LastError := Esme.bindReceiver("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
-	if LastError != nil {
-		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
-	}
-	handleBindOperation(smsc_connection, t)
-	err := handleBindResponse(&Esme)
-	if err != nil {
-		t.Errorf("Error handling the answer from SMSC : %v", err)
-	}
-	if state := Esme.getConnectionState(); state != BOUND_RX {
-		t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, err)
-	}
-}
-
-func handleBindResponse(Esme *ESME) error {
-	esmeReceivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
-	if err != nil {
-		return err
-	}
-	resp, err := ParsePdu(esmeReceivedBuf)
-	if err != nil {
-		return err
-	}
-	if resp.header.commandStatus == ESME_ROK {
-		switch resp.header.commandId {
-		case "bind_receiver_resp":
-			Esme.state = BOUND_RX
-
-		case "bind_transmitter_resp":
-			Esme.state = BOUND_TX
-
-		case "bind_transceiver_resp":
-			Esme.state = BOUND_TRX
-		}
-
-	} else {
-		err = fmt.Errorf("The answer received wasn't OK or not the type we expected!")
-	}
-	return err
 }
 
 func TestCanWeConnectTwiceToSMSC(t *testing.T) {
@@ -122,7 +91,7 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
 	defer Esme2.Close()
-	err2 := Esme2.bindTransmiter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
+	err2 := Esme2.bindReceiver("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %v", err)
 	}
@@ -133,9 +102,8 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	if err != nil || err2 != nil || err3 != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v\n err3 =%v", err, err2, err3)
 	}
-	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword))
-	tempReadBuf := readBuf2[0:len(expectedBuf)]
-	if !bytes.Equal(tempReadBuf, expectedBuf) || err != nil {
+	expectedBuf, err := EncodePdu(NewBindReceiver().WithSystemId(validSystemID).WithPassword(validPassword))
+	if !bytes.Equal(readBuf2, expectedBuf) || err != nil {
 		t.Errorf("We didn't receive what we sent")
 	}
 	if !assertWeHaveActiveConnections(smsc, 2) {
@@ -207,28 +175,6 @@ func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_ri
 	}
 }
 
-func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([]byte, error) {
-	buffer := bytes.Buffer{}
-	err := ConnectionSocket.SetDeadline(timeout)
-	if err != nil {
-		return nil, err
-	}
-	readLengthBuffer := make([]byte, 4)
-	_, err = ConnectionSocket.Read(readLengthBuffer)
-	if err == nil {
-		length := int(binary.BigEndian.Uint32(readLengthBuffer))
-		if length <= 4 {
-			return nil, fmt.Errorf("Received malformed packet : %v", readLengthBuffer)
-		}
-		readBuf := make([]byte, length-4)
-		_, err = ConnectionSocket.Read(readBuf)
-		buffer.Write(readLengthBuffer)
-		buffer.Write(readBuf)
-	}
-
-	return buffer.Bytes(), err
-}
-
 func InstantiateEsme(serverAddress net.Addr) (esme ESME, err error) {
 	clientSocket, err := net.Dial(connType, serverAddress.String())
 	esme = ESME{clientSocket, "OPEN"}
@@ -293,6 +239,9 @@ func handleBindOperation(smsc_connection net.Conn, t *testing.T) {
 	bindResponsePdu := NewBindTransmitterResp().WithSystemId(validSystemID)
 	if receivedPdu.header.commandId == "bind_receiver" {
 		bindResponsePdu.header.commandId = "bind_receiver_resp"
+	}
+	if receivedPdu.header.commandId == "bind_transceiver" {
+		bindResponsePdu.header.commandId = "bind_transceiver_resp"
 	}
 	bindResponse, err := EncodePdu(bindResponsePdu)
 	if err != nil {
