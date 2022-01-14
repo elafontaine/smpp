@@ -271,3 +271,11 @@ func (p PDU) withSMPPError(id string) PDU {
 	p.header.commandStatus = id
 	return p
 }
+
+func (p PDU) isSystemId(id string) bool {
+	return p.body.mandatoryParameter["system_id"] == id
+}
+
+func (p PDU) isPassword(password string) bool {
+	return p.body.mandatoryParameter["password"] == password
+}
