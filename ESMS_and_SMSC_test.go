@@ -17,7 +17,7 @@ const (
 )
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
-	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
+	smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
 	defer smsc.Close()
 	defer Esme.Close()
 
@@ -30,7 +30,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	if LastError != nil {
 		t.Errorf("Error writing : %v", LastError)
 	}
-	readBuf, LastError := readPduBytesFromConnection(smsc.connections.Load().([]net.Conn)[0], time.Now().Add(1*time.Second))
+	readBuf, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
 	if LastError != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
@@ -38,7 +38,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	if !bytes.Equal(readBuf, expectedBuf) || err != nil {
 		t.Errorf("We didn't receive the first PDU we sent")
 	}
-	readSecondPdu, LastError := readPduBytesFromConnection(smsc.connections.Load().([]net.Conn)[0], time.Now().Add(1*time.Second))
+	readSecondPdu, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
 	if !bytes.Equal(readSecondPdu, Pdu) || LastError != nil {
 		t.Errorf("We didn't read the second PFU we sent correctly")
 	}
@@ -62,7 +62,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
 			defer smsc.Close()
 			defer Esme.Close()
-		
+
 			pdu := tt.args.bind_pdu.WithSystemId(validSystemID).WithPassword(validPassword)
 			LastError := Esme.bind(&pdu) //Should we expect the bind_transmitter to return only when the bind is done and valid?
 			if LastError != nil {
@@ -251,14 +251,4 @@ func handleBindOperation(smsc_connection net.Conn, t *testing.T) {
 	if err != nil {
 		t.Errorf("Couldn't write to the ESME from SMSC : %v", err)
 	}
-}
-
-func IsBindOperation(receivedPdu PDU) bool {
-	switch receivedPdu.header.commandId {
-	case "bind_transmitter",
-		"bind_receiver",
-		"bind_transceiver":
-		return true
-	}
-	return false
 }
