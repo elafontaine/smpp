@@ -27,6 +27,12 @@ func (e ESME) bindTransmiter(systemID, password string) error { //Should we expe
 	return err
 }
 
+func (e ESME) bindTransceiver(systemID, password string) error { //Should we expect the bind_transmitter to return only when the bind is done and valid?
+	pdu := NewBindTransceiver().WithSystemId(systemID).WithPassword(password)
+	err := e.bind(&pdu)
+	return err
+}
+
 func (e ESME) bindReceiver(systemID, password string) error { //Should we expect the bind_reveicer to return only when the bind is done and valid?
 	pdu := NewBindReceiver().WithSystemId(systemID).WithPassword(password)
 	err := e.bind(&pdu)

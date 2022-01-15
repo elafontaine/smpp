@@ -46,16 +46,16 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 
 func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	type args struct {
-		bind_pdu *PDU
+		bind_pdu func(e *ESME,sys, pass string) error
 	}
 	tests := []struct {
 		name        string
 		args        args
 		wantBoundAs string
 	}{
-		{"TestEsmeCanBindWithSmscAsAReceiver", args{func() *PDU { pdu := NewBindReceiver(); return &pdu }()}, BOUND_RX},
-		{"TestEsmeCanBindWithSmscAsAReceiver", args{func() *PDU { pdu := NewBindTransmitter(); return &pdu }()}, BOUND_TX},
-		{"TestEsmeCanBindWithSmscAsAReceiver", args{func() *PDU { pdu := NewBindTransceiver(); return &pdu }()}, BOUND_TRX},
+		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).bindReceiver}, BOUND_RX},
+		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).bindTransmiter}, BOUND_TX},
+		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).bindTransceiver}, BOUND_TRX},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -63,8 +63,8 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			defer smsc.Close()
 			defer Esme.Close()
 
-			pdu := tt.args.bind_pdu.WithSystemId(validSystemID).WithPassword(validPassword)
-			LastError := Esme.bind(&pdu) //Should we expect the bind_transmitter to return only when the bind is done and valid?
+			LastError := tt.args.bind_pdu(&Esme,validSystemID,validPassword)
+			
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 			}
