@@ -18,8 +18,7 @@ const (
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
-	defer smsc.Close()
-	defer Esme.Close()
+	defer CloseAndAssertClean(smsc, Esme, t)
 
 	LastError := Esme.bindTransmitter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if LastError != nil {
@@ -46,7 +45,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 
 func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	type args struct {
-		bind_pdu func(e *ESME,sys, pass string) error
+		bind_pdu func(e *ESME, sys, pass string) error
 	}
 	tests := []struct {
 		name        string
@@ -60,16 +59,15 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
-			defer smsc.Close()
-			defer Esme.Close()
+			defer CloseAndAssertClean(smsc, Esme, t)
 
-			LastError := tt.args.bind_pdu(&Esme,validSystemID,validPassword)
-			
+			LastError := tt.args.bind_pdu(Esme, validSystemID, validPassword)
+
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 			}
 			handleBindOperation(smsc_connection, t)
-			err := handleBindResponse(&Esme)
+			err := handleBindResponse(Esme)
 			if err != nil {
 				t.Errorf("Error handling the answer from SMSC : %v", err)
 			}
@@ -78,13 +76,11 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
-	defer Esme.Close()
-	defer smsc.Close()
+	defer CloseAndAssertClean(smsc, Esme, t)
 
 	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr())
 	if err != nil {
@@ -113,8 +109,7 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 
 func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
-	defer Esme.Close()
-	defer smsc.Close()
+	defer CloseAndAssertClean(smsc, Esme, t)
 
 	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr())
 	if err != nil {
@@ -133,8 +128,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v\n err3 =%v", err, err2, err3)
 	}
 	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword))
-	tempReadBuf := readBuf2[0:len(expectedBuf)]
-	if !bytes.Equal(tempReadBuf, expectedBuf) || err != nil {
+	if !bytes.Equal(readBuf2, expectedBuf) || err != nil {
 		t.Errorf("We didn't receive what we sent")
 	}
 	if !assertWeHaveActiveConnections(smsc, 2) {
@@ -144,11 +138,19 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 
 func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
 	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
-	defer Esme.Close()
-	defer smsc.Close()
+	defer CloseAndAssertClean(smsc, Esme, t)
 
 	smsc.Close()
+}
 
+func CloseAndAssertClean(s *SMSC, e *ESME, t *testing.T) {
+	e.Close()
+	s.Close()
+
+	AssertSmscIsClosedAndClean(s, t)
+}
+
+func AssertSmscIsClosedAndClean(smsc *SMSC, t *testing.T) {
 	assertListenerIsClosed(smsc, t)
 	assertAllRemainingConnectionsAreClosed(smsc, t)
 }
@@ -203,7 +205,7 @@ func (s *SMSC) AcceptAllNewConnection() {
 	}
 }
 
-func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, ESME, error) {
+func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME, error) {
 	smsc, err := StartSmscSimulatorServerAndAccept()
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
@@ -214,7 +216,7 @@ func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, ESME, error) {
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
 	smsc_connection := smsc.connections.Load().([]net.Conn)[0]
-	return smsc, smsc_connection, Esme, err
+	return smsc, smsc_connection, &Esme, err
 }
 
 func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
