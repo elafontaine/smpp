@@ -21,7 +21,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	defer smsc.Close()
 	defer Esme.Close()
 
-	LastError := Esme.bindTransmiter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
+	LastError := Esme.bindTransmitter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if LastError != nil {
 		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 	}
@@ -54,8 +54,8 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 		wantBoundAs string
 	}{
 		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).bindReceiver}, BOUND_RX},
-		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).bindTransmiter}, BOUND_TX},
-		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).bindTransceiver}, BOUND_TRX},
+		{"TestEsmeCanBindWithSmscAsATransmitter", args{(*ESME).bindTransmitter}, BOUND_TX},
+		{"TestEsmeCanBindWithSmscAsATransceiver", args{(*ESME).bindTransceiver}, BOUND_TRX},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
 	defer Esme2.Close()
-	err2 := Esme2.bindTransmiter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
+	err2 := Esme2.bindTransmitter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %v", err)
 	}

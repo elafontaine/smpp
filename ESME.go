@@ -21,7 +21,7 @@ func (e ESME) Close() {
 	e.clientSocket.Close()
 }
 
-func (e ESME) bindTransmiter(systemID, password string) error { //Should we expect the bind_transmitter to return only when the bind is done and valid?
+func (e ESME) bindTransmitter(systemID, password string) error { //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
 	err := e.bind(&pdu)
 	return err
