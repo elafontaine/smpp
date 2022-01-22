@@ -2,6 +2,7 @@ package smpp
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net"
 	"testing"
@@ -66,8 +67,11 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 			}
-			handleBindOperation(smsc_connection, t)
-			err := handleBindResponse(Esme)
+			err := handleBindOperation(&smsc_connection)
+			if err != nil {
+				t.Errorf("Error handling the binding operation on SMSC : %v", err)
+			}
+			_, err = waitForBindResponse(Esme)
 			if err != nil {
 				t.Errorf("Error handling the answer from SMSC : %v", err)
 			}
@@ -136,6 +140,22 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	}
 }
 
+func TestSmscCanRefuseConnectionHavingWrongCredentials(t *testing.T) {
+	smsc, smsc_connection, esme, _ := ConnectEsmeAndSmscTogether(t)
+	defer CloseAndAssertClean(smsc, esme, t)
+
+	go handleBindOperation(&smsc_connection)
+
+	pdu_resp, err := esme.bindTransmitter2("WrongSystemId", validPassword) // this shouldn't return until we get a "OK" from SMSC
+	if err != nil && pdu_resp == nil {
+		t.Errorf("We didn't receive the expected error response from SMSC.")
+	} else if err == nil && pdu_resp.header.commandStatus == ESME_ROK {
+		t.Errorf("Error, we shouldn't succeed to bind with wrong password!")
+	} else if pdu_resp.header.commandStatus != ESME_RBINDFAIL {
+		t.Errorf("We didn't receive the expected error")
+	}
+}
+
 func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
 	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
@@ -197,7 +217,7 @@ func StartSmscSimulatorServerAndAccept() (smsc *SMSC, err error) {
 
 func (s *SMSC) AcceptAllNewConnection() {
 	for s.State != "CLOSED" {
-		err := s.AcceptNewConnectionFromSMSC()
+		_, err := s.AcceptNewConnectionFromSMSC()
 		if err != nil {
 			log.Printf("SMSC wasn't able to accept a new connection: %v", err)
 			break
@@ -224,19 +244,23 @@ func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
 		time.Sleep(0)
 	}
 }
+func handleConnection(conn *net.Conn) {
+	err := handleBindOperation(conn)
+	if err != nil {
+		log.Default().Printf("Issue on Connection %v\n", conn)
+	}
+	
+}
 
-func handleBindOperation(smsc_connection net.Conn, t *testing.T) {
-	readBuf, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
+func handleBindOperation(smsc_connection *net.Conn) error {
+	readBuf, LastError := readPduBytesFromConnection(*smsc_connection, time.Now().Add(1*time.Second))
 	if LastError != nil {
-		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
+		return fmt.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
 	receivedPdu, err := ParsePdu(readBuf)
 	NotABindOperation := !IsBindOperation(receivedPdu)
 	if NotABindOperation || err != nil {
-		t.Errorf("We didn't received expected bind operation")
-	}
-	if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
-		t.Errorf("We didn't received expected credentials")
+		return fmt.Errorf("We didn't received expected bind operation")
 	}
 	bindResponsePdu := NewBindTransmitterResp().WithSystemId(validSystemID)
 	if receivedPdu.header.commandId == "bind_receiver" {
@@ -245,12 +269,17 @@ func handleBindOperation(smsc_connection net.Conn, t *testing.T) {
 	if receivedPdu.header.commandId == "bind_transceiver" {
 		bindResponsePdu.header.commandId = "bind_transceiver_resp"
 	}
+	if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
+		bindResponsePdu.header.commandStatus = ESME_RBINDFAIL
+		log.Default().Printf("We didn't received expected credentials")
+	}
 	bindResponse, err := EncodePdu(bindResponsePdu)
 	if err != nil {
-		t.Errorf("Encoding bind response failed : %v", err)
+		return fmt.Errorf("Encoding bind response failed : %v", err)
 	}
-	_, err = smsc_connection.Write(bindResponse)
+	_, err = (*smsc_connection).Write(bindResponse)
 	if err != nil {
-		t.Errorf("Couldn't write to the ESME from SMSC : %v", err)
+		return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
 	}
+	return nil
 }

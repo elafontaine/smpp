@@ -13,34 +13,46 @@ type ESME struct {
 	state        string
 }
 
-const BOUND_TX = "BOUND_TX"
-const BOUND_RX = "BOUND_RX"
-const BOUND_TRX = "BOUND_TRX"
+const (
+	BOUND_TX  = "BOUND_TX"
+	BOUND_RX  = "BOUND_RX"
+	BOUND_TRX = "BOUND_TRX"
+)
 
-func (e ESME) Close() {
+func (e *ESME) Close() {
 	e.clientSocket.Close()
 }
 
-func (e ESME) bindTransmitter(systemID, password string) error { //Should we expect the bind_transmitter to return only when the bind is done and valid?
+func (e *ESME) bindTransmitter(systemID, password string) error {
 	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
-	err := e.bind(&pdu)
+	err := e.send(&pdu)
 	return err
 }
 
-func (e ESME) bindTransceiver(systemID, password string) error { //Should we expect the bind_transmitter to return only when the bind is done and valid?
+func (e *ESME) bindTransmitter2(systemID, password string) (resp *PDU, err error) {
+	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
+	err = e.send(&pdu)
+	if err != nil {
+		return nil, err
+	}
+	resp, err = waitForBindResponse(e)
+	return resp, err
+}
+
+func (e *ESME) bindTransceiver(systemID, password string) error {
 	pdu := NewBindTransceiver().WithSystemId(systemID).WithPassword(password)
-	err := e.bind(&pdu)
+	err := e.send(&pdu)
 	return err
 }
 
-func (e ESME) bindReceiver(systemID, password string) error { //Should we expect the bind_reveicer to return only when the bind is done and valid?
+func (e *ESME) bindReceiver(systemID, password string) error {
 	pdu := NewBindReceiver().WithSystemId(systemID).WithPassword(password)
-	err := e.bind(&pdu)
+	err := e.send(&pdu)
 	return err
 }
 
-func (e ESME) bind( bindPdu *PDU) error { //Should we expect the bind_reveicer to return only when the bind is done and valid?
-	expectedBytes, err := EncodePdu(*bindPdu)
+func (e *ESME) send(pdu *PDU) error { //Should we expect the bind_reveicer to return only when the bind is done and valid?
+	expectedBytes, err := EncodePdu(*pdu)
 	if err != nil {
 		return err
 	}
@@ -48,10 +60,9 @@ func (e ESME) bind( bindPdu *PDU) error { //Should we expect the bind_reveicer t
 	return err
 }
 
-func (e ESME) getConnectionState() (state string) {
+func (e *ESME) getConnectionState() (state string) {
 	return e.state
 }
-
 
 func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([]byte, error) {
 	buffer := bytes.Buffer{}
@@ -75,17 +86,18 @@ func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([
 	return buffer.Bytes(), err
 }
 
-func handleBindResponse(Esme *ESME) error {
-	esmeReceivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
+func waitForBindResponse(Esme *ESME) (pdu *PDU, err error) {
+	receivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	resp, err := ParsePdu(esmeReceivedBuf)
+	parsedPdu, err := ParsePdu(receivedBuf)
+	pdu = &parsedPdu
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if resp.header.commandStatus == ESME_ROK {
-		switch resp.header.commandId {
+	if pdu.header.commandStatus == ESME_ROK {
+		switch pdu.header.commandId {
 		case "bind_receiver_resp":
 			Esme.state = BOUND_RX
 
@@ -99,5 +111,5 @@ func handleBindResponse(Esme *ESME) error {
 	} else {
 		err = fmt.Errorf("The answer received wasn't OK or not the type we expected!")
 	}
-	return err
+	return pdu, err
 }
