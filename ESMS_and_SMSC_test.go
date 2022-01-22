@@ -19,15 +19,15 @@ const (
 )
 
 var (
-	WarningLogger *log.Logger
-    InfoLogger    *log.Logger
-    ErrorLogger   *log.Logger
+	WarningSmppLogger *log.Logger
+    InfoSmppLogger    *log.Logger
+    ErrorSmppLogger   *log.Logger
 )
 
 func init() {
-    InfoLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-    WarningLogger = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-    ErrorLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+    InfoSmppLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+    WarningSmppLogger = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
+    ErrorSmppLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
@@ -261,7 +261,7 @@ func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
 func handleConnection(conn *net.Conn) {
 	err := handleBindOperation(conn)
 	if err != nil {
-		InfoLogger.Printf("Issue on Connection %v\n", conn)
+		InfoSmppLogger.Printf("Issue on Connection %v\n", conn)
 	}
 }
 
@@ -284,7 +284,7 @@ func handleBindOperation(smsc_connection *net.Conn) error {
 	}
 	if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
 		bindResponsePdu.header.commandStatus = ESME_RBINDFAIL
-		InfoLogger.Printf("We didn't received expected credentials")
+		InfoSmppLogger.Printf("We didn't received expected credentials")
 	}
 	bindResponse, err := EncodePdu(bindResponsePdu)
 	if err != nil {
