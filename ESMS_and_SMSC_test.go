@@ -16,6 +16,7 @@ const (
 	connType      = "tcp"
 	validSystemID = "SystemId"
 	validPassword = "Password"
+	invalidUserName = "InvalidUser"
 )
 
 var (
@@ -95,6 +96,48 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	}
 }
 
+func TestReactionFromSmscOnFirstPDU(t *testing.T) {
+	bindReceiver := NewBindReceiver().WithSystemId(validSystemID).WithPassword(validPassword)
+	bindTransceiver := NewBindTransceiver().WithSystemId(validSystemID).WithPassword(validPassword)
+	bindTransmitter := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword)
+	bindWrongUserName := NewBindReceiver().WithSystemId(invalidUserName).WithPassword(validPassword)
+	type args struct {
+		bind_pdu *PDU
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantSMSCResp PDU
+	}{
+		{"TestEsmeCanBindWithSmscAsAReceiver", args{&bindReceiver}, NewBindReceiverResp().WithSystemId(validSystemID)},
+		{"TestEsmeCanBindWithSmscAsATransmitter", args{&bindTransmitter}, NewBindTransmitterResp().WithSystemId(validSystemID)},
+		{"TestEsmeCanBindWithSmscAsATransceiver", args{&bindTransceiver}, NewBindTransceiverResp().WithSystemId(validSystemID)},
+		{"TestSMSCRejectWithWrongUserName", args{&bindWrongUserName}, NewBindReceiverResp().withSMPPError(ESME_RBINDFAIL).WithSystemId(invalidUserName)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
+			defer CloseAndAssertClean(smsc, Esme, t)
+
+			LastError := Esme.send(tt.args.bind_pdu)
+
+			if LastError != nil {
+				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
+			}
+			err := handleBindOperation(&smsc_connection)
+			if err != nil {
+				t.Errorf("Error handling the binding operation on SMSC : %v", err)
+			}
+			pduResp, err := waitForBindResponse(Esme)
+			tt.wantSMSCResp.header.sequenceNumber = pduResp.header.sequenceNumber
+			tt.wantSMSCResp.header.commandLength = pduResp.header.commandLength 
+			if err != nil && pduResp.header.commandStatus != tt.wantSMSCResp.header.commandStatus {
+				t.Errorf("Error handling the answer from SMSC : %v", err)
+			}
+			comparePdu(*pduResp, tt.wantSMSCResp, t) 
+		})
+	}
+}
 func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
@@ -275,7 +318,7 @@ func handleBindOperation(smsc_connection *net.Conn) error {
 	if NotABindOperation || err != nil {
 		return fmt.Errorf("We didn't received expected bind operation")
 	}
-	bindResponsePdu := NewBindTransmitterResp().WithSystemId(validSystemID)
+	bindResponsePdu := NewBindTransmitterResp().WithSystemId(receivedPdu.body.mandatoryParameter["system_id"].(string))
 	if receivedPdu.header.commandId == "bind_receiver" {
 		bindResponsePdu.header.commandId = "bind_receiver_resp"
 	}
