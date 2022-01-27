@@ -272,7 +272,7 @@ func StartSmscSimulatorServerAndAccept() (smsc *SMSC, err error) {
 }
 
 func (s *SMSC) AcceptAllNewConnection() {
-	for s.State != "CLOSED" {
+	for s.State != CLOSED {
 		_, err := s.AcceptNewConnectionFromSMSC()
 		if err != nil {
 			log.Printf("SMSC wasn't able to accept a new connection: %v", err)

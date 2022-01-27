@@ -6,6 +6,10 @@ import (
 	"sync/atomic"
 )
 
+const (
+	LISTENING = "LISTENING"
+)
+
 type SMSC struct {
 	listeningSocket net.Listener
 	connections     atomic.Value
@@ -15,7 +19,7 @@ type SMSC struct {
 func NewSMSC(listeningSocket *net.Listener) (s *SMSC) {
 	s = &SMSC{listeningSocket: *listeningSocket, connections: atomic.Value{}}
 	s.connections.Store([]net.Conn{})
-	s.State = "LISTENING"
+	s.State = LISTENING
 	return s
 }
 

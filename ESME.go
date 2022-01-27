@@ -18,8 +18,10 @@ const (
 	BOUND_RX  = "BOUND_RX"
 	BOUND_TRX = "BOUND_TRX"
 	OPEN = "OPEN"
-	
+	CLOSED = "CLOSED"
 )
+
+
 
 func (e *ESME) Close() {
 	e.clientSocket.Close()
