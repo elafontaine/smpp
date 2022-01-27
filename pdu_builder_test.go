@@ -8,69 +8,44 @@ import (
 
 func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 	t.Parallel()
-	defaultBindTransmitter := PDU{
-		header: Header{
-			0,
-			"bind_transmitter",
-			ESME_ROK,
-			0,
-		},
-		body: Body{
-			mandatoryParameter: map[string]interface{}{
-				"system_id":         "",
-				"password":          "",
-				"system_type":       "",
-				"interface_version": 52,
-				"addr_ton":          0,
-				"addr_npi":          0,
-				"address_range":     "",
-			},
-			optionalParameters: nil,
-		},
+	type args struct {
+		builder_function func() PDU
 	}
-
-	t.Run("instantiating bind_transmitter", func(t *testing.T) {
-		comparePdu(NewBindTransmitter(),
-			defaultBindTransmitter, t)
-	})
-}
-
-func TestDefaultValueForNewBindReceiver(t *testing.T) {
-	t.Parallel()
-
-	defaultBindReceiver := PDU{
-		header: Header{
-			0,
-			"bind_receiver",
-			ESME_ROK,
-			0,
-		},
-		body: defaultBindBody(),
+	tests := []struct {
+		name         string
+		args         args
+		wantPDU 	 string
+	}{
+		{"instantiating bind_transmitter and default body", args{NewBindTransmitter}, "bind_transmitter"},
+		{"instantiating bind_transceiver", args{NewBindTransceiver}, "bind_transceiver"},
+		{"instantiating bind_transmitter", args{NewBindReceiver}, "bind_receiver"},
 	}
-
-	t.Run("instantiating bind_receiver", func(t *testing.T) {
-		if got := NewBindReceiver(); !reflect.DeepEqual(got, defaultBindReceiver) {
-			t.Errorf("NewBindReceiver() = %v, want %v", got, defaultBindReceiver)
-		}
-	})
-}
-
-func TestDefaultValueForNewBindTransceiver(t *testing.T) {
-	t.Parallel()
-
-	defaultBindTransceiver := PDU{
-		header: Header{
-			0,
-			"bind_transceiver",
-			ESME_ROK,
-			0,
-		},
-		body: defaultBindBody(),
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defaultBindPdu := PDU{
+				header: Header{
+					0,
+					tt.wantPDU,
+					ESME_ROK,
+					0,
+				},
+				body: Body{
+					mandatoryParameter: map[string]interface{}{
+						"system_id":         "",
+						"password":          "",
+						"system_type":       "",
+						"interface_version": 52,
+						"addr_ton":          0,
+						"addr_npi":          0,
+						"address_range":     "",
+					},
+					optionalParameters: nil,
+				},
+			}
+			comparePdu(tt.args.builder_function(), defaultBindPdu, t)
+			
+		})
 	}
-
-	t.Run("instantiating bind_transceiver", func(t *testing.T) {
-		comparePdu(NewBindTransceiver(), defaultBindTransceiver, t)
-	})
 }
 
 func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {

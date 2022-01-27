@@ -272,6 +272,11 @@ func (p PDU) withSMPPError(id string) PDU {
 	return p
 }
 
+func (p PDU) WithCommandId(id string) PDU {
+	p.header.commandId = id
+	return p
+}
+
 func (p PDU) isSystemId(id string) bool {
 	return p.body.mandatoryParameter["system_id"] == id
 }

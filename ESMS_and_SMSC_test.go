@@ -11,24 +11,24 @@ import (
 )
 
 const (
-	connhost      = "localhost"
-	connport      = "0"
-	connType      = "tcp"
-	validSystemID = "SystemId"
-	validPassword = "Password"
+	connhost        = "localhost"
+	connport        = "0"
+	connType        = "tcp"
+	validSystemID   = "SystemId"
+	validPassword   = "Password"
 	invalidUserName = "InvalidUser"
 )
 
 var (
 	WarningSmppLogger *log.Logger
-    InfoSmppLogger    *log.Logger
-    ErrorSmppLogger   *log.Logger
+	InfoSmppLogger    *log.Logger
+	ErrorSmppLogger   *log.Logger
 )
 
 func init() {
-    InfoSmppLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-    WarningSmppLogger = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-    ErrorSmppLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+	InfoSmppLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	WarningSmppLogger = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorSmppLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
@@ -101,18 +101,20 @@ func TestReactionFromSmscOnFirstPDU(t *testing.T) {
 	bindTransceiver := NewBindTransceiver().WithSystemId(validSystemID).WithPassword(validPassword)
 	bindTransmitter := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword)
 	bindWrongUserName := NewBindReceiver().WithSystemId(invalidUserName).WithPassword(validPassword)
+	SubmitSMUnbound := NewSubmitSM()
 	type args struct {
 		bind_pdu *PDU
 	}
 	tests := []struct {
-		name        string
-		args        args
+		name         string
+		args         args
 		wantSMSCResp PDU
 	}{
 		{"TestEsmeCanBindWithSmscAsAReceiver", args{&bindReceiver}, NewBindReceiverResp().WithSystemId(validSystemID)},
 		{"TestEsmeCanBindWithSmscAsATransmitter", args{&bindTransmitter}, NewBindTransmitterResp().WithSystemId(validSystemID)},
 		{"TestEsmeCanBindWithSmscAsATransceiver", args{&bindTransceiver}, NewBindTransceiverResp().WithSystemId(validSystemID)},
 		{"TestSMSCRejectWithWrongUserName", args{&bindWrongUserName}, NewBindReceiverResp().withSMPPError(ESME_RBINDFAIL).WithSystemId(invalidUserName)},
+		{"TestSubmitSMOnNonBoundedBindIsReturningInvalidBindStatus", args{&SubmitSMUnbound}, NewSubmitSMResp().withSMPPError(ESME_RINVBNDSTS).WithMessageId("")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -126,15 +128,15 @@ func TestReactionFromSmscOnFirstPDU(t *testing.T) {
 			}
 			err := handleBindOperation(&smsc_connection)
 			if err != nil {
-				t.Errorf("Error handling the binding operation on SMSC : %v", err)
+				t.Logf("Error handling the binding operation on SMSC : %v", err)
 			}
 			pduResp, err := waitForBindResponse(Esme)
 			tt.wantSMSCResp.header.sequenceNumber = pduResp.header.sequenceNumber
-			tt.wantSMSCResp.header.commandLength = pduResp.header.commandLength 
+			tt.wantSMSCResp.header.commandLength = pduResp.header.commandLength
 			if err != nil && pduResp.header.commandStatus != tt.wantSMSCResp.header.commandStatus {
 				t.Errorf("Error handling the answer from SMSC : %v", err)
 			}
-			comparePdu(*pduResp, tt.wantSMSCResp, t) 
+			comparePdu(*pduResp, tt.wantSMSCResp, t)
 		})
 	}
 }
@@ -308,26 +310,26 @@ func handleConnection(conn *net.Conn) {
 	}
 }
 
-func handleBindOperation(smsc_connection *net.Conn) error {
+func handleBindOperation(smsc_connection *net.Conn) (formated_error error) {
 	readBuf, LastError := readPduBytesFromConnection(*smsc_connection, time.Now().Add(1*time.Second))
 	if LastError != nil {
 		return fmt.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
 	receivedPdu, err := ParsePdu(readBuf)
-	NotABindOperation := !IsBindOperation(receivedPdu)
-	if NotABindOperation || err != nil {
-		return fmt.Errorf("We didn't received expected bind operation")
+	if err != nil {
+		return fmt.Errorf("Couldn't parse received PDU!")
 	}
-	bindResponsePdu := NewBindTransmitterResp().WithSystemId(receivedPdu.body.mandatoryParameter["system_id"].(string))
-	if receivedPdu.header.commandId == "bind_receiver" {
-		bindResponsePdu.header.commandId = "bind_receiver_resp"
+	bindResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
+	ABindOperation := IsBindOperation(receivedPdu)
+	if !ABindOperation {
+		formated_error = fmt.Errorf("We didn't received expected bind operation")
+		bindResponsePdu = bindResponsePdu.WithMessageId("").withSMPPError(ESME_RINVBNDSTS)
 	}
-	if receivedPdu.header.commandId == "bind_transceiver" {
-		bindResponsePdu.header.commandId = "bind_transceiver_resp"
-	}
-	if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
-		bindResponsePdu.header.commandStatus = ESME_RBINDFAIL
-		InfoSmppLogger.Printf("We didn't received expected credentials")
+	if ABindOperation {
+		if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
+			bindResponsePdu.header.commandStatus = ESME_RBINDFAIL
+			InfoSmppLogger.Printf("We didn't received expected credentials")
+		}
 	}
 	bindResponse, err := EncodePdu(bindResponsePdu)
 	if err != nil {
@@ -337,5 +339,5 @@ func handleBindOperation(smsc_connection *net.Conn) error {
 	if err != nil {
 		return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
 	}
-	return nil
+	return formated_error
 }
