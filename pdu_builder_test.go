@@ -165,9 +165,8 @@ func TestDeliverSmInstantiation(t *testing.T) {
 	expectedDeliverSM := deliverSmObj
 	expectedDeliverSM.body = defaultSubmitSmBody()
 	expectedDeliverSM.header.commandLength = 0
-	expectedDeliverSM.header.sequenceNumber = 0
 
-	actualDeliverSM := NewDeliverSM()
+	actualDeliverSM := NewDeliverSM().WithSequenceNumber(1)
 
 	t.Run("Constructor Pattern for deliverSM ", func(t *testing.T) {
 		comparePdu(actualDeliverSM, expectedDeliverSM, t)

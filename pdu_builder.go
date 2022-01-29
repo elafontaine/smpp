@@ -277,6 +277,11 @@ func (p PDU) WithCommandId(id string) PDU {
 	return p
 }
 
+func (p PDU) WithSequenceNumber(id int) PDU {
+	p.header.sequenceNumber = id
+	return p
+}
+
 func (p PDU) isSystemId(id string) bool {
 	return p.body.mandatoryParameter["system_id"] == id
 }
