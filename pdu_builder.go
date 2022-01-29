@@ -267,7 +267,7 @@ func (p PDU) WithMessageId(id string) PDU {
 	return p
 }
 
-func (p PDU) withSMPPError(id string) PDU {
+func (p PDU) WithSMPPError(id string) PDU {
 	p.header.commandStatus = id
 	return p
 }

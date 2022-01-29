@@ -226,7 +226,7 @@ func TestGenericNACK(t *testing.T) {
 	expectedDeliverSmResp.header.commandLength = 0
 	expectedDeliverSmResp.header.sequenceNumber = 0
 
-	actualDeliverSmResp := NewGenerickNack().withSMPPError("ESME_RINVSRCADR")
+	actualDeliverSmResp := NewGenerickNack().WithSMPPError("ESME_RINVSRCADR")
 
 	t.Run("Constructor Pattern for DeliverSmResp ", func(t *testing.T) {
 		comparePdu(actualDeliverSmResp, expectedDeliverSmResp, t)

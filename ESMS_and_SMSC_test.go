@@ -120,8 +120,8 @@ func TestReactionFromSmscOnFirstPDU(t *testing.T) {
 		{"TestEsmeCanBindWithSmscAsAReceiver", args{&bindReceiver}, NewBindReceiverResp().WithSystemId(validSystemID)},
 		{"TestEsmeCanBindWithSmscAsATransmitter", args{&bindTransmitter}, NewBindTransmitterResp().WithSystemId(validSystemID)},
 		{"TestEsmeCanBindWithSmscAsATransceiver", args{&bindTransceiver}, NewBindTransceiverResp().WithSystemId(validSystemID)},
-		{"TestSMSCRejectWithWrongUserName", args{&bindWrongUserName}, NewBindReceiverResp().withSMPPError(ESME_RBINDFAIL).WithSystemId(invalidUserName)},
-		{"TestSubmitSMOnNonBoundedBindIsReturningInvalidBindStatus", args{&SubmitSMUnbound}, NewSubmitSMResp().withSMPPError(ESME_RINVBNDSTS).WithMessageId("")},
+		{"TestSMSCRejectWithWrongUserName", args{&bindWrongUserName}, NewBindReceiverResp().WithSMPPError(ESME_RBINDFAIL).WithSystemId(invalidUserName)},
+		{"TestSubmitSMOnNonBoundedBindIsReturningInvalidBindStatus", args{&SubmitSMUnbound}, NewSubmitSMResp().WithSMPPError(ESME_RINVBNDSTS).WithMessageId("")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -330,7 +330,7 @@ func handleBindOperation(smsc_connection *net.Conn) (formated_error error) {
 	ABindOperation := IsBindOperation(receivedPdu)
 	if !ABindOperation {
 		formated_error = fmt.Errorf("We didn't received expected bind operation")
-		bindResponsePdu = bindResponsePdu.WithMessageId("").withSMPPError(ESME_RINVBNDSTS)
+		bindResponsePdu = bindResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
 	}
 	if ABindOperation {
 		if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
