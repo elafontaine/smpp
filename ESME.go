@@ -9,19 +9,18 @@ import (
 )
 
 type ESME struct {
-	clientSocket net.Conn
-	state        string
+	clientSocket   net.Conn
+	state          string
+	sequenceNumber int
 }
 
 const (
 	BOUND_TX  = "BOUND_TX"
 	BOUND_RX  = "BOUND_RX"
 	BOUND_TRX = "BOUND_TRX"
-	OPEN = "OPEN"
-	CLOSED = "CLOSED"
+	OPEN      = "OPEN"
+	CLOSED    = "CLOSED"
 )
-
-
 
 func (e *ESME) Close() {
 	e.clientSocket.Close()
@@ -29,13 +28,13 @@ func (e *ESME) Close() {
 
 func (e *ESME) bindTransmitter(systemID, password string) error {
 	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
-	err := e.send(&pdu)
+	_, err := e.send(&pdu)
 	return err
 }
 
 func (e *ESME) bindTransmitter2(systemID, password string) (resp *PDU, err error) {
 	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
-	err = e.send(&pdu)
+	_, err = e.send(&pdu)
 	if err != nil {
 		return nil, err
 	}
@@ -45,23 +44,26 @@ func (e *ESME) bindTransmitter2(systemID, password string) (resp *PDU, err error
 
 func (e *ESME) bindTransceiver(systemID, password string) error {
 	pdu := NewBindTransceiver().WithSystemId(systemID).WithPassword(password)
-	err := e.send(&pdu)
+	_, err := e.send(&pdu)
 	return err
 }
 
 func (e *ESME) bindReceiver(systemID, password string) error {
 	pdu := NewBindReceiver().WithSystemId(systemID).WithPassword(password)
-	err := e.send(&pdu)
+	_, err := e.send(&pdu)
 	return err
 }
 
-func (e *ESME) send(pdu *PDU) error { //Should we expect the bind_reveicer to return only when the bind is done and valid?
-	expectedBytes, err := EncodePdu(*pdu)
+func (e *ESME) send(pdu *PDU) (seq_num int, err error) { //Should we expect the bind_reveicer to return only when the bind is done and valid?
+	e.sequenceNumber++
+	seq_num = e.sequenceNumber
+	send_pdu := pdu.WithSequenceNumber(e.sequenceNumber)
+	expectedBytes, err := EncodePdu(send_pdu)
 	if err != nil {
-		return err
+		return seq_num, err
 	}
 	_, err = e.clientSocket.Write(expectedBytes)
-	return err
+	return seq_num, err
 }
 
 func (e *ESME) getConnectionState() (state string) {

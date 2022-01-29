@@ -39,8 +39,11 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	if LastError != nil {
 		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 	}
-	Pdu, _ := EncodePdu(NewSubmitSM())
-	_, LastError = Esme.clientSocket.Write(Pdu)
+	secondPdu := NewSubmitSM()
+	sequence_number, LastError := Esme.send(&secondPdu)
+	if sequence_number != 2 {
+		t.Errorf("Sending sequence number isn't as expected !")
+	}
 	if LastError != nil {
 		t.Errorf("Error writing : %v", LastError)
 	}
@@ -48,13 +51,17 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	if LastError != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
-	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword))
+	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1))
 	if !bytes.Equal(readBuf, expectedBuf) || err != nil {
-		t.Errorf("We didn't receive the first PDU we sent")
+		t.Errorf("We didn't receive the expected first PDU we sent")
 	}
 	readSecondPdu, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
-	if !bytes.Equal(readSecondPdu, Pdu) || LastError != nil {
+	if LastError != nil {
 		t.Errorf("We didn't read the second PFU we sent correctly")
+	}
+	expectedBytes, LastError := EncodePdu(secondPdu.WithSequenceNumber(2))
+	if !bytes.Equal(readSecondPdu, expectedBytes) || LastError != nil {
+		t.Errorf("We didn't receive expected PDU (sequence Number wrong?)")
 	}
 }
 
@@ -121,7 +128,7 @@ func TestReactionFromSmscOnFirstPDU(t *testing.T) {
 			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
-			LastError := Esme.send(tt.args.bind_pdu)
+			_, LastError := Esme.send(tt.args.bind_pdu)
 
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
@@ -160,7 +167,7 @@ func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	if err != nil || err2 != nil || err3 != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v\n err3 =%v", err, err2, err3)
 	}
-	expectedBuf, err := EncodePdu(NewBindReceiver().WithSystemId(validSystemID).WithPassword(validPassword))
+	expectedBuf, err := EncodePdu(NewBindReceiver().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1))
 	if !bytes.Equal(readBuf2, expectedBuf) || err != nil {
 		t.Errorf("We didn't receive what we sent")
 	}
@@ -189,7 +196,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	if err != nil || err2 != nil || err3 != nil {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v\n err3 =%v", err, err2, err3)
 	}
-	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword))
+	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1))
 	if !bytes.Equal(readBuf2, expectedBuf) || err != nil {
 		t.Errorf("We didn't receive what we sent")
 	}
@@ -257,7 +264,7 @@ func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_ri
 
 func InstantiateEsme(serverAddress net.Addr) (esme ESME, err error) {
 	clientSocket, err := net.Dial(connType, serverAddress.String())
-	esme = ESME{clientSocket, OPEN}
+	esme = ESME{clientSocket, OPEN,0}
 	return esme, err
 }
 
