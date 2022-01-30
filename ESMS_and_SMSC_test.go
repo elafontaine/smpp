@@ -66,6 +66,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 }
 
 func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		bind_pdu func(e *ESME, sys, pass string) error
 	}
@@ -104,6 +105,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 }
 
 func TestReactionFromSmscOnFirstPDU(t *testing.T) {
+	t.Parallel()
 	bindReceiver := NewBindReceiver().WithSystemId(validSystemID).WithPassword(validPassword)
 	bindTransceiver := NewBindTransceiver().WithSystemId(validSystemID).WithPassword(validPassword)
 	bindTransmitter := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword)
@@ -146,6 +148,60 @@ func TestReactionFromSmscOnFirstPDU(t *testing.T) {
 			comparePdu(*pduResp, tt.wantSMSCResp, t)
 		})
 	}
+}
+
+func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
+	tests := []struct {
+		send_pdu     PDU
+		wantSMSCResp PDU
+	}{
+		{
+			NewSubmitSM().WithMessage("Hello"),
+			NewSubmitSMResp().WithSequenceNumber(2).WithMessageId("1"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v",tt.send_pdu), func(t *testing.T) {
+			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
+			defer CloseAndAssertClean(smsc, Esme, t)
+			go handleConnection(&smsc_connection)
+
+			bind_resp, err := Esme.bindTransmitter2(validSystemID,validPassword)
+			if bind_resp.header.commandStatus != ESME_ROK || err != nil {
+				t.Errorf("Something broken somewhere else... we failed to bind, present err: %v", err)
+			}
+			_, LastError := Esme.send(&tt.send_pdu)
+			if LastError != nil {
+				t.Errorf("Failed to receive the appropriate pdu response : %v", LastError)
+			}
+			////////////////this shouldn't be in this test...//////
+			smscReceivedBytes, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
+			if LastError != nil {
+				t.Errorf("Failed to receive bytes : %v",LastError)
+			}
+			_, LastError = ParsePdu(smscReceivedBytes)
+			if LastError != nil {
+				t.Errorf("Failed to parse received bytes : %v",LastError)
+			}
+			submit_sm_resp_bytes, _ := EncodePdu(NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(2))
+			smsc_connection.Write(submit_sm_resp_bytes)
+			/////////////// END of refactoring needed ///////////////
+
+			expectedPdu := tt.wantSMSCResp
+			actualBytes, LastError := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
+			
+			if LastError != nil {
+				t.Errorf("Failed to receive bytes : %v",LastError)
+			}
+			actualPdu, LastError := ParsePdu(actualBytes)
+			expectedPdu.header.commandLength = actualPdu.header.commandLength
+			if LastError != nil {
+				t.Errorf("Couldn't parse received bytes : %v", LastError)
+			}
+			comparePdu(actualPdu,expectedPdu,t)
+		})
+	}
+
 }
 func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
@@ -209,7 +265,7 @@ func TestSmscCanRefuseConnectionHavingWrongCredentials(t *testing.T) {
 	smsc, smsc_connection, esme, _ := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 
-	go handleBindOperation(&smsc_connection)
+	go handleConnection(&smsc_connection)
 
 	pdu_resp, err := esme.bindTransmitter2("WrongSystemId", validPassword) // this shouldn't return until we get a "OK" from SMSC
 	if err != nil && pdu_resp == nil {
@@ -264,7 +320,7 @@ func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_ri
 
 func InstantiateEsme(serverAddress net.Addr) (esme ESME, err error) {
 	clientSocket, err := net.Dial(connType, serverAddress.String())
-	esme = ESME{clientSocket, OPEN,0}
+	esme = ESME{clientSocket, OPEN, 0}
 	return esme, err
 }
 
