@@ -22,8 +22,9 @@ const (
 	CLOSED    = "CLOSED"
 )
 
-func (e *ESME) Close() {
-	e.clientSocket.Close()
+func (e *ESME) Close() (err error) {
+	err = e.clientSocket.Close()
+	return err
 }
 
 func (e *ESME) bindTransmitter(systemID, password string) error {
