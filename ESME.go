@@ -103,6 +103,11 @@ func waitForBindResponse(Esme *ESME) (pdu *PDU, err error) {
 	if err != nil {
 		return nil, err
 	}
+	err = SetESMEStateFromSMSCResponse(pdu, Esme)
+	return pdu, err
+}
+
+func SetESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
 	if pdu.header.commandStatus == ESME_ROK {
 		switch pdu.header.commandId {
 		case "bind_receiver_resp":
@@ -118,5 +123,5 @@ func waitForBindResponse(Esme *ESME) (pdu *PDU, err error) {
 	} else {
 		err = fmt.Errorf("The answer received wasn't OK or not the type we expected!")
 	}
-	return pdu, err
+	return err
 }

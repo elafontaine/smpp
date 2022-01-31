@@ -81,7 +81,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
+			smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			LastError := tt.args.bind_pdu(Esme, validSystemID, validPassword)
@@ -89,7 +89,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 			}
-			err := handleBindOperation(&smsc_connection)
+			err := handleOperations(&smsc.ESMEs.Load().([]ESME)[0])
 			if err != nil {
 				t.Errorf("Error handling the binding operation on SMSC : %v", err)
 			}
@@ -99,6 +99,9 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			}
 			if state := Esme.getConnectionState(); state != tt.wantBoundAs {
 				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, err)
+			}
+			if Esme.state != smsc.ESMEs.Load().([]ESME)[0].state {
+				t.Errorf("The state isn't the same on the SMSC connection and ESME")
 			}
 		})
 	}
@@ -127,7 +130,7 @@ func TestReactionFromSmscOnFirstPDU(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
+			smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			_, LastError := Esme.send(tt.args.bind_pdu)
@@ -135,7 +138,7 @@ func TestReactionFromSmscOnFirstPDU(t *testing.T) {
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 			}
-			err := handleBindOperation(&smsc_connection)
+			err := handleOperations(&smsc.ESMEs.Load().([]ESME)[0])
 			if err != nil {
 				t.Logf("Error handling the binding operation on SMSC : %v", err)
 			}
@@ -161,12 +164,12 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%v",tt.send_pdu), func(t *testing.T) {
-			smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
+		t.Run(fmt.Sprintf("%v", tt.send_pdu), func(t *testing.T) {
+			smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 			go handleConnection(&smsc.ESMEs.Load().([]ESME)[0])
 
-			bind_resp, err := Esme.bindTransmitter2(validSystemID,validPassword)
+			bind_resp, err := Esme.bindTransmitter2(validSystemID, validPassword)
 			if bind_resp.header.commandStatus != ESME_ROK || err != nil {
 				t.Errorf("Something broken somewhere else... we failed to bind, present err: %v", err)
 			}
@@ -174,29 +177,28 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 			if LastError != nil {
 				t.Errorf("Failed to receive the appropriate pdu response : %v", LastError)
 			}
-			////////////////this shouldn't be in this test...//////
-			ReplyToSubmitSM(smsc_connection, t)
+			////////////////this shouldn't be in this test...////////
+			ReplyToSubmitSM(smsc.ESMEs.Load().([]ESME)[0], t)
 			/////////////// END of refactoring needed ///////////////
 
 			expectedPdu := tt.wantSMSCResp
 			actualBytes, LastError := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
-			
+
 			if LastError != nil {
-				t.Errorf("Failed to receive bytes : %v",LastError)
+				t.Errorf("Failed to receive bytes : %v", LastError)
 			}
 			actualPdu, LastError := ParsePdu(actualBytes)
 			expectedPdu.header.commandLength = actualPdu.header.commandLength
 			if LastError != nil {
 				t.Errorf("Couldn't parse received bytes : %v", LastError)
 			}
-			comparePdu(actualPdu,expectedPdu,t)
+			comparePdu(actualPdu, expectedPdu, t)
 		})
 	}
-
 }
 
-func ReplyToSubmitSM(smsc_connection net.Conn, t *testing.T) {
-	smscReceivedBytes, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
+func ReplyToSubmitSM(e ESME, t *testing.T) {
+	smscReceivedBytes, LastError := readPduBytesFromConnection(e.clientSocket, time.Now().Add(1*time.Second))
 	if LastError != nil {
 		t.Errorf("Failed to receive bytes : %v", LastError)
 	}
@@ -205,7 +207,7 @@ func ReplyToSubmitSM(smsc_connection net.Conn, t *testing.T) {
 		t.Errorf("Failed to parse received bytes : %v", LastError)
 	}
 	submit_sm_resp_bytes, _ := EncodePdu(NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(2))
-	smsc_connection.Write(submit_sm_resp_bytes)
+	e.clientSocket.Write(submit_sm_resp_bytes)
 }
 func TestCanWeConnectTwiceToSMSC(t *testing.T) {
 	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
@@ -371,15 +373,14 @@ func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
 }
 
 func handleConnection(e *ESME) {
-	
-	err := handleBindOperation(&e.clientSocket)
+	err := handleOperations(e)
 	if err != nil {
 		InfoSmppLogger.Printf("Issue on Connection: %v\n", err)
 	}
 }
 
-func handleBindOperation(smsc_connection *net.Conn) (formated_error error) {
-	readBuf, LastError := readPduBytesFromConnection(*smsc_connection, time.Now().Add(1*time.Second))
+func handleOperations(e *ESME) (formated_error error) {
+	readBuf, LastError := readPduBytesFromConnection(e.clientSocket, time.Now().Add(1*time.Second))
 	if LastError != nil {
 		return fmt.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
 	}
@@ -387,25 +388,37 @@ func handleBindOperation(smsc_connection *net.Conn) (formated_error error) {
 	if err != nil {
 		return fmt.Errorf("Couldn't parse received PDU!")
 	}
-	bindResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
+	ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
 	ABindOperation := IsBindOperation(receivedPdu)
 	if !ABindOperation {
 		formated_error = fmt.Errorf("We didn't received expected bind operation")
-		bindResponsePdu = bindResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
+		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
+		bindResponse, err := EncodePdu(ResponsePdu)
+		if err != nil {
+			return fmt.Errorf("Encoding bind response failed : %v", err)
+		}
+		_, err = (e.clientSocket).Write(bindResponse)
+		if err != nil {
+			return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
+		}
 	}
 	if ABindOperation {
 		if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
-			bindResponsePdu.header.commandStatus = ESME_RBINDFAIL
+			ResponsePdu.header.commandStatus = ESME_RBINDFAIL
 			InfoSmppLogger.Printf("We didn't received expected credentials")
 		}
-	}
-	bindResponse, err := EncodePdu(bindResponsePdu)
-	if err != nil {
-		return fmt.Errorf("Encoding bind response failed : %v", err)
-	}
-	_, err = (*smsc_connection).Write(bindResponse)
-	if err != nil {
-		return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
+		bindResponse, err := EncodePdu(ResponsePdu)
+		if err != nil {
+			return fmt.Errorf("Encoding bind response failed : %v", err)
+		}
+		err = SetESMEStateFromSMSCResponse(&ResponsePdu,e)
+		if err != nil {
+			InfoSmppLogger.Printf("Couldn't set the bind state on request!")
+		}
+		_, err = (e.clientSocket).Write(bindResponse)
+		if err != nil {
+			return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
+		}
 	}
 	return formated_error
 }
