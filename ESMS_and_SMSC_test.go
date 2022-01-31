@@ -403,22 +403,30 @@ func handleOperations(e *ESME) (formated_error error) {
 		}
 	}
 	if ABindOperation {
-		if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
-			ResponsePdu.header.commandStatus = ESME_RBINDFAIL
-			InfoSmppLogger.Printf("We didn't received expected credentials")
-		}
-		bindResponse, err := EncodePdu(ResponsePdu)
-		if err != nil {
-			return fmt.Errorf("Encoding bind response failed : %v", err)
-		}
-		err = SetESMEStateFromSMSCResponse(&ResponsePdu,e)
-		if err != nil {
-			InfoSmppLogger.Printf("Couldn't set the bind state on request!")
-		}
-		_, err = (e.clientSocket).Write(bindResponse)
-		if err != nil {
-			return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
+		shouldReturn, returnValue := handleBindOperation(receivedPdu, ResponsePdu, e)
+		if shouldReturn {
+			return returnValue
 		}
 	}
 	return formated_error
+}
+
+func handleBindOperation(receivedPdu PDU, ResponsePdu PDU, e *ESME) (bool, error) {
+	if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
+		ResponsePdu.header.commandStatus = ESME_RBINDFAIL
+		InfoSmppLogger.Printf("We didn't received expected credentials")
+	}
+	bindResponse, err := EncodePdu(ResponsePdu)
+	if err != nil {
+		return true, fmt.Errorf("Encoding bind response failed : %v", err)
+	}
+	err = SetESMEStateFromSMSCResponse(&ResponsePdu, e)
+	if err != nil {
+		InfoSmppLogger.Printf("Couldn't set the bind state on request!")
+	}
+	_, err = (e.clientSocket).Write(bindResponse)
+	if err != nil {
+		return true, fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
+	}
+	return false, nil
 }
