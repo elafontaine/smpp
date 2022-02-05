@@ -12,7 +12,7 @@ const (
 
 type SMSC struct {
 	listeningSocket net.Listener
-	ESMEs     atomic.Value
+	ESMEs           atomic.Value
 	State           string
 }
 
@@ -28,11 +28,10 @@ func (smsc *SMSC) AcceptNewConnectionFromSMSC() (conn *net.Conn, err error) {
 	conn = &serverConnectionSocket
 
 	e := ESME{
-		clientSocket   : serverConnectionSocket,
-		state          : OPEN,
-		sequenceNumber : 0,
+		clientSocket:   serverConnectionSocket,
+		state:          OPEN,
+		sequenceNumber: 0,
 	}
-
 
 	if err != nil {
 		err = fmt.Errorf("couldn't establish connection on the server side successfully: %v", err)

@@ -11,6 +11,29 @@ func NewGenerickNack() PDU {
 	return PDU{header: header}
 }
 
+func NewEnquiryLink() PDU {
+	header := Header{
+		commandLength:  0,
+		commandId:      "enquire_link",
+		commandStatus:  ESME_ROK,
+		sequenceNumber: 0,
+	}
+	return PDU{header: header}
+}
+
+func NewEnquiryLinkResp() PDU {
+	header := Header{
+		commandLength:  0,
+		commandId:      "enquire_link_resp",
+		commandStatus:  ESME_ROK,
+		sequenceNumber: 0,
+	}
+	body := Body{
+		mandatoryParameter: map[string]interface{}{},
+	}
+	return PDU{header: header, body: body}
+}
+
 func NewBindTransmitter() PDU {
 	header := Header{
 		commandLength:  0,

@@ -12,9 +12,9 @@ func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 		builder_function func() PDU
 	}
 	tests := []struct {
-		name         string
-		args         args
-		wantPDU 	 string
+		name    string
+		args    args
+		wantPDU string
 	}{
 		{"instantiating bind_transmitter and default body", args{NewBindTransmitter}, "bind_transmitter"},
 		{"instantiating bind_transceiver", args{NewBindTransceiver}, "bind_transceiver"},
@@ -43,7 +43,7 @@ func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 				},
 			}
 			comparePdu(tt.args.builder_function(), defaultBindPdu, t)
-			
+
 		})
 	}
 }
@@ -230,6 +230,45 @@ func TestGenericNACK(t *testing.T) {
 
 	t.Run("Constructor Pattern for DeliverSmResp ", func(t *testing.T) {
 		comparePdu(actualDeliverSmResp, expectedDeliverSmResp, t)
+	})
+}
+
+func TestEnquiryLink(t *testing.T) {
+	t.Parallel()
+
+	expectedEnquiryLink := PDU{
+		header: Header{
+			commandId: "enquire_link",
+			commandStatus: ESME_ROK,
+		},
+	}
+	expectedEnquiryLink.header.commandLength = 0
+	expectedEnquiryLink.header.sequenceNumber = 0
+
+	actualEnquiryLink := NewEnquiryLink()
+	t.Run("Constructor Pattern for EnquiryLink ", func(t *testing.T) {
+		comparePdu(actualEnquiryLink, expectedEnquiryLink, t)
+	})
+}
+
+func TestEnquiryLinkResp(t *testing.T) {
+	t.Parallel()
+
+	expectedEnquiryLink := PDU{
+		header: Header{
+			commandId: "enquire_link_resp",
+			commandStatus: ESME_ROK,
+		},
+		body: Body{
+			mandatoryParameter: map[string]interface{}{},
+		},
+	}
+	expectedEnquiryLink.header.commandLength = 0
+	expectedEnquiryLink.header.sequenceNumber = 0
+
+	actualEnquiryLink := NewEnquiryLinkResp()
+	t.Run("Constructor Pattern for EnquiryLink ", func(t *testing.T) {
+		comparePdu(actualEnquiryLink, expectedEnquiryLink, t)
 	})
 }
 

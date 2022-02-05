@@ -169,7 +169,17 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 		{
 			"Send SubmitSM when bind as transmitter return SubmitSMResp",
 			args{NewSubmitSM().WithMessage("Hello"), BOUND_TX},
-			NewSubmitSMResp().WithSequenceNumber(2).WithMessageId("1"),
+			NewSubmitSMResp().WithSequenceNumber(1).WithMessageId("1"),
+		},
+		{
+			"Send SubmitSM when bind as receiver return SubmitSMResp but invalid bind status",
+			args{NewSubmitSM().WithMessage("Hello"), BOUND_RX},
+			NewSubmitSMResp().WithSequenceNumber(1).WithSMPPError(ESME_RINVBNDSTS).WithMessageId(""),
+		},
+		{
+			"Send enquiry_link when bind as transmitter should return response",
+			args{NewEnquiryLink(), BOUND_TX},
+			NewEnquiryLinkResp().WithSequenceNumber(1),
 		},
 	}
 	for _, tt := range tests {
@@ -180,11 +190,9 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 			Esme.state = tt.args.bind_state
 			smsc.ESMEs.Load().([]ESME)[0].state = tt.args.bind_state
 			go handleConnection(&smsc.ESMEs.Load().([]ESME)[0])
-			seq_num, LastError := Esme.send(&tt.args.send_pdu)
+			_, LastError := Esme.send(&tt.args.send_pdu)
 			if LastError != nil {
 				t.Errorf("Failed to send pdu : %v", LastError)
-			} else {
-				InfoSmppLogger.Printf("seq_num: %v", seq_num)
 			}
 
 			expectedPdu := tt.wantSMSCResp
@@ -204,7 +212,7 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 }
 
 func ReplyToSubmitSM(e ESME, receivedPdu PDU) (err error) {
-	submit_sm_resp_bytes, _ := EncodePdu(NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(2))
+	submit_sm_resp_bytes, _ := EncodePdu(NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(1))
 	_, LastError := e.clientSocket.Write(submit_sm_resp_bytes)
 	if LastError != nil {
 		return fmt.Errorf("Couldn't write to esme socket: %v", LastError)
@@ -408,7 +416,16 @@ func handleOperations(e *ESME) (formated_error error) {
 	if receivedPdu.header.commandId == "submit_sm" {
 		if isTransmitterState(e) {
 			formated_error = ReplyToSubmitSM(*e, receivedPdu)
+		} else {
+			ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
+			ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
+			_, formated_error = e.send(&ResponsePdu)
+
 		}
+	}
+	if receivedPdu.header.commandId == "enquire_link" {
+		ResponsePdu := NewEnquiryLinkResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
+		_, formated_error = e.send(&ResponsePdu)
 	}
 	return formated_error
 }

@@ -56,9 +56,12 @@ func (e *ESME) bindReceiver(systemID, password string) error {
 }
 
 func (e *ESME) send(pdu *PDU) (seq_num int, err error) { //Should we expect the bind_reveicer to return only when the bind is done and valid?
-	e.sequenceNumber++
-	seq_num = e.sequenceNumber
-	send_pdu := pdu.WithSequenceNumber(e.sequenceNumber)
+	seq_num = pdu.header.sequenceNumber
+	if pdu.header.sequenceNumber == 0 {
+		e.sequenceNumber++
+		seq_num = e.sequenceNumber
+	}
+	send_pdu := pdu.WithSequenceNumber(seq_num)
 	expectedBytes, err := EncodePdu(send_pdu)
 	if err != nil {
 		return seq_num, err
