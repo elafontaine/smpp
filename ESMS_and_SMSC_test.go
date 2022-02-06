@@ -181,6 +181,11 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 			args{NewEnquiryLink(), BOUND_TX},
 			NewEnquiryLinkResp(),
 		},
+		{
+			"Send deliver_sm when bind as transmitter should return response",
+			args{NewDeliverSM(), BOUND_TX},
+			NewDeliverSMResp().WithMessageId("").WithSMPPError(ESME_RINVBNDSTS),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v", tt.name), func(t *testing.T) {
@@ -402,6 +407,19 @@ func handleOperations(e *ESME) (formated_error error) {
 		ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
 		formated_error = fmt.Errorf("We didn't received expected bind operation")
 		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
+		bindResponse, err := EncodePdu(ResponsePdu)
+		if err != nil {
+			return fmt.Errorf("Encoding bind response failed : %v", err)
+		}
+		_, err = (e.clientSocket).Write(bindResponse)
+		if err != nil {
+			return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
+		}
+	}
+	if receivedPdu.header.commandId == "deliver_sm" {
+		ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
+		formated_error = fmt.Errorf("We received a deliver_sm on a SMSC which isn't supposed to happen.")
+		ResponsePdu = ResponsePdu.WithSMPPError(ESME_RINVBNDSTS).WithMessageId("")
 		bindResponse, err := EncodePdu(ResponsePdu)
 		if err != nil {
 			return fmt.Errorf("Encoding bind response failed : %v", err)
