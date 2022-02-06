@@ -169,17 +169,17 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 		{
 			"Send SubmitSM when bind as transmitter return SubmitSMResp",
 			args{NewSubmitSM().WithMessage("Hello"), BOUND_TX},
-			NewSubmitSMResp().WithSequenceNumber(1).WithMessageId("1"),
+			NewSubmitSMResp().WithMessageId("1"),
 		},
 		{
 			"Send SubmitSM when bind as receiver return SubmitSMResp but invalid bind status",
 			args{NewSubmitSM().WithMessage("Hello"), BOUND_RX},
-			NewSubmitSMResp().WithSequenceNumber(1).WithSMPPError(ESME_RINVBNDSTS).WithMessageId(""),
+			NewSubmitSMResp().WithSMPPError(ESME_RINVBNDSTS).WithMessageId(""),
 		},
 		{
 			"Send enquiry_link when bind as transmitter should return response",
 			args{NewEnquiryLink(), BOUND_TX},
-			NewEnquiryLinkResp().WithSequenceNumber(1),
+			NewEnquiryLinkResp(),
 		},
 	}
 	for _, tt := range tests {
@@ -190,7 +190,7 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 			Esme.state = tt.args.bind_state
 			smsc.ESMEs.Load().([]ESME)[0].state = tt.args.bind_state
 			go handleConnection(&smsc.ESMEs.Load().([]ESME)[0])
-			_, LastError := Esme.send(&tt.args.send_pdu)
+			sequence_number, LastError := Esme.send(&tt.args.send_pdu)
 			if LastError != nil {
 				t.Errorf("Failed to send pdu : %v", LastError)
 			}
@@ -203,6 +203,7 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 			}
 			actualPdu, LastError := ParsePdu(actualBytes)
 			expectedPdu.header.commandLength = actualPdu.header.commandLength
+			expectedPdu.header.sequenceNumber = sequence_number
 			if LastError != nil {
 				t.Errorf("Couldn't parse received bytes : %v", LastError)
 			}

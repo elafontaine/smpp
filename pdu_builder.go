@@ -1,33 +1,29 @@
 package smpp
 
-/* Sane Defaults objects */
-func NewGenerickNack() PDU {
-	header := Header{
+func defaultHeader() (Header) {
+	return Header{
 		commandLength:  0,
 		commandId:      "generick_nack",
 		commandStatus:  ESME_ROK,
 		sequenceNumber: 0,
 	}
-	return PDU{header: header}
+}
+
+/* Sane Defaults objects */
+func NewGenerickNack() PDU {
+	header := defaultHeader()
+	return PDU{ header: header}
 }
 
 func NewEnquiryLink() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "enquire_link",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "enquire_link"
 	return PDU{header: header}
 }
 
 func NewEnquiryLinkResp() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "enquire_link_resp",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "enquire_link_resp"
 	body := Body{
 		mandatoryParameter: map[string]interface{}{},
 	}
@@ -35,45 +31,29 @@ func NewEnquiryLinkResp() PDU {
 }
 
 func NewBindTransmitter() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "bind_transmitter",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "bind_transmitter"
 	body := defaultBindBody()
 	return PDU{header: header, body: body}
 }
 
 func NewBindReceiver() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "bind_receiver",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "bind_receiver"
 	body := defaultBindBody()
 	return PDU{header: header, body: body}
 }
 
 func NewBindTransceiver() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "bind_transceiver",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "bind_transceiver"
 	body := defaultBindBody()
 	return PDU{header: header, body: body}
 }
 
 func NewBindTransmitterResp() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "bind_transmitter_resp",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "bind_transmitter_resp"
 	body := Body{
 		mandatoryParameter: map[string]interface{}{},
 	}
@@ -81,12 +61,8 @@ func NewBindTransmitterResp() PDU {
 }
 
 func NewBindTransceiverResp() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "bind_transceiver_resp",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "bind_transceiver_resp"
 	body := Body{
 		mandatoryParameter: map[string]interface{}{},
 	}
@@ -94,12 +70,8 @@ func NewBindTransceiverResp() PDU {
 }
 
 func NewBindReceiverResp() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "bind_receiver_resp",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "bind_receiver_resp"
 	body := Body{
 		mandatoryParameter: map[string]interface{}{},
 	}
@@ -107,23 +79,15 @@ func NewBindReceiverResp() PDU {
 }
 
 func NewSubmitSM() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "submit_sm",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "submit_sm"
 	body := defaultSubmitSmBody()
 	return PDU{header: header, body: body}
 }
 
 func NewSubmitSMResp() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "submit_sm_resp",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "submit_sm_resp"
 	body := Body{
 		mandatoryParameter: map[string]interface{}{},
 	}
@@ -131,12 +95,8 @@ func NewSubmitSMResp() PDU {
 }
 
 func NewDeliverSMResp() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "deliver_sm_resp",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "deliver_sm_resp"
 	body := Body{
 		mandatoryParameter: map[string]interface{}{},
 	}
@@ -144,23 +104,15 @@ func NewDeliverSMResp() PDU {
 }
 
 func NewDeliverSM() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "deliver_sm",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "deliver_sm"
 	body := defaultSubmitSmBody()
 	return PDU{header: header, body: body}
 }
 
 func NewDataSM() PDU {
-	header := Header{
-		commandLength:  0,
-		commandId:      "data_sm",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
-	}
+	header := defaultHeader()
+	header.commandId = "data_sm"
 	body := defaultSubmitSmBody()
 	return PDU{header: header, body: body}
 }
