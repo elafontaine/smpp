@@ -10,8 +10,9 @@ import (
 
 type ESME struct {
 	clientSocket   net.Conn
-	state          string
+	state          State
 	sequenceNumber int
+	closeChan      chan bool
 }
 
 const (
@@ -22,9 +23,26 @@ const (
 	CLOSED    = "CLOSED"
 )
 
-func (e *ESME) Close() (err error) {
-	err = e.clientSocket.Close()
-	return err
+func (e *ESME) Close() {
+	if e.getEsmeState() != CLOSED {
+		e.closeChan <- true
+	}
+}
+
+func (e *ESME) _close() {
+	<-e.closeChan
+	e.state.setState <- CLOSED
+	e.state.done<- true
+	e.clientSocket.Close()
+}
+
+func (e *ESME) getEsmeState() string {
+	return e.state.getState()
+}
+
+func (state *State) getState() string {
+	state.askForState<- true
+	return <-state.reportState
 }
 
 func (e *ESME) bindTransmitter(systemID, password string) error {
@@ -55,7 +73,7 @@ func (e *ESME) bindReceiver(systemID, password string) error {
 	return err
 }
 
-func (e *ESME) send(pdu *PDU) (seq_num int, err error) { //Should we expect the bind_reveicer to return only when the bind is done and valid?
+func (e *ESME) send(pdu *PDU) (seq_num int, err error) {
 	seq_num = pdu.header.sequenceNumber
 	if pdu.header.sequenceNumber == 0 {
 		e.sequenceNumber++
@@ -68,10 +86,6 @@ func (e *ESME) send(pdu *PDU) (seq_num int, err error) { //Should we expect the 
 	}
 	_, err = e.clientSocket.Write(expectedBytes)
 	return seq_num, err
-}
-
-func (e *ESME) getConnectionState() (state string) {
-	return e.state
 }
 
 func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([]byte, error) {
@@ -92,7 +106,6 @@ func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([
 		buffer.Write(readLengthBuffer)
 		buffer.Write(readBuf)
 	}
-
 	return buffer.Bytes(), err
 }
 
@@ -114,15 +127,14 @@ func SetESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
 	if pdu.header.commandStatus == ESME_ROK {
 		switch pdu.header.commandId {
 		case "bind_receiver_resp":
-			Esme.state = BOUND_RX
+			Esme.state.setState <- BOUND_RX
 
 		case "bind_transmitter_resp":
-			Esme.state = BOUND_TX
+			Esme.state.setState <- BOUND_TX
 
 		case "bind_transceiver_resp":
-			Esme.state = BOUND_TRX
+			Esme.state.setState <- BOUND_TRX
 		}
-
 	} else {
 		err = fmt.Errorf("The answer received wasn't OK or not the type we expected!")
 	}

@@ -1,7 +1,6 @@
 package smpp
 
 import (
-	"fmt"
 	"net"
 	"sync/atomic"
 )
@@ -13,43 +12,59 @@ const (
 type SMSC struct {
 	listeningSocket net.Listener
 	ESMEs           atomic.Value
-	State           string
+	State           State
 }
 
 func NewSMSC(listeningSocket *net.Listener) (s *SMSC) {
 	s = &SMSC{listeningSocket: *listeningSocket, ESMEs: atomic.Value{}}
-	s.ESMEs.Store([]ESME{})
-	s.State = LISTENING
+	s.ESMEs.Store([]*ESME{})
+	s.State = *NewESMEState(LISTENING)
 	return s
 }
 
-func (smsc *SMSC) AcceptNewConnectionFromSMSC() (conn *net.Conn, err error) {
+func (smsc *SMSC) AcceptNewConnectionFromSMSC() (e *ESME, err error) {
 	serverConnectionSocket, err := smsc.listeningSocket.Accept()
-	conn = &serverConnectionSocket
-
-	e := ESME{
-		clientSocket:   serverConnectionSocket,
-		state:          OPEN,
-		sequenceNumber: 0,
-	}
-
 	if err != nil {
-		err = fmt.Errorf("couldn't establish connection on the server side successfully: %v", err)
 		return nil, err
 	}
-	old_connections := smsc.ESMEs.Load().([]ESME)
+	e = &ESME{
+		clientSocket:   serverConnectionSocket,
+		state:          *NewESMEState(OPEN),
+		sequenceNumber: 0,
+		closeChan:      make(chan bool),
+	}
+	go e._close()
+
+	old_connections := smsc.ESMEs.Load().([]*ESME)
 	new_connections := append(old_connections, e)
 	smsc.ESMEs.Store(new_connections)
-	return conn, err
+	return e, err
+}
+
+func (s *SMSC) removeClosedEsmeFromSmsc(e *ESME) {
+	e.Close()
+	old_connections := s.ESMEs.Load().([]*ESME)
+	new_connections := old_connections[:0]
+	for _, x := range old_connections {
+		if x != e {
+			new_connections = append(new_connections, x)
+		}
+	}
+	s.ESMEs.Store(new_connections)
 }
 
 func (s *SMSC) GetNumberOfConnection() int {
-	return len(s.ESMEs.Load().([]ESME))
+	return len(s.ESMEs.Load().([]*ESME))
 }
 
 func (s *SMSC) Close() {
-	for _, conn := range s.ESMEs.Load().([]ESME) {
-		conn.Close()
+	for _, conn := range s.ESMEs.Load().([]*ESME) {
+		if conn.getEsmeState() != CLOSED {
+			conn.Close()
+		}
 	}
 	s.listeningSocket.Close()
+	if s.State.getState() != CLOSED {
+		s.State.setState <- CLOSED
+	}
 }
