@@ -13,7 +13,7 @@ domain).
 
 For example `gosmpp` is a full type-oriented approach which I was told is the golang idiomatic representation of SMPP. I
 spent a while in there trying to see how to use it without going through many types. I had to make objects after objects
-of certain specific types (don't get me wrong, some people like that model, I just don't). As I was unsuccessful to make
+of certain specific types **(don't get me wrong, some people like that model, I'm just not able to think that way)**. As I was unsuccessful to make
 a simple ESME send Submit_SM, I looked at my python implementation and decided it was simpler to just implement it in
 go. There is also the added complexity of having multiple types in your head in that way of modeling the code, which is
 something I know human are not good at doing (at most 2-3 types in their heads).
@@ -25,13 +25,38 @@ that will be useable out of the box.
 
 How to use it ?
 ---------------
-For now, I only did the decrypting of a PDU packet. The encrypting test will be using it to reconstruct the exact same
+
+For now, I only did the decoding of a PDU packet. The encoding test are using it to reconstruct the exact same
 PDU through an "decode -> encode" stream of tests.
 
-Every PDU exchanged will be of type `PDU`. That type contains a `Header` which always container the SMPP headers value.
-It also contains the `mandatoryParameter` field for the mandatory SMPP parameter of the PDU command used. Finally, it
+Every PDU exchanged will be of type `PDU`. That type contains a `Header` which always contain the SMPP headers value.
+It also contains the `Body` which in turns contains a `mandatoryParameter` field for the mandatory SMPP parameter of the PDU command used. Finally, the `Body`
 also contain the `optionalParameter` field which is a map of the optional parameters present on the pdu.
 
+Although, being able to make a PDU object is nice, it's often an annoyance of having to instantiate all the mandatory parameters and their defaults.  For that matter, the `pdu_builder.go` file contains multiple builder for the SMPP PDU types and their defaults as well as the building functions to assign a value to a parameter (weither it's in the `Header` or `mandatoryParameter`,  the `optionalParameter` hasn't been made official yet in how we want to handle it).
+
+So, if you want to be making your own PDUs
+```
+bind_pdu = NewBindTransmitter().WithSystemId(systemID).WithPassword(password).WithSequenceNumber(sequence_number)
+
+pduBytes, err := EncodePdu(bind_pdu)
+```
+
+Now, this is not really useful by itself, unless you have an ESME object you could use to abstract much of the complexity away ; 
+
+```
+clientSocket, err := net.Dial("tcp", serverAddress.String())
+e:= ESME{clientSocket, *NewESMEState(OPEN), 0, make(chan bool)}
+
+```
+The `ESME` object has some convenience functions at the moment and but is currently underwork... 
+I know that I want people to be able to ask for "one ESME, please!" and be able to provide the framework 
+for handling the SMPP exchange protocol value through the go channels.  So the ESME will probably evolve 
+into a mechanics of passing PDU objects or bytes through a channel (probably bytes as there is no validation
+on PDU objects themselves, and I want the user to receive the error, not the internals of the ESME).
+
+The `SMSC` object is currently not made for prod and instantiate ESMEs for each connection.  There is do
+logic at the moment for dispatching messages, but it would probably be using the same as the ESME when they're ready.
 
 
 
