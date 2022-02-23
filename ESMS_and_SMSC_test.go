@@ -230,7 +230,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
-	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr())
+	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
 	if err != nil {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
@@ -245,11 +245,11 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v", err, err2)
 	}
 	expectedBuf := NewBindTransmitterResp().
-						WithSystemId(validSystemID).
-						WithSequenceNumber(1).
-						WithSMPPError(ESME_ROK)
+		WithSystemId(validSystemID).
+		WithSequenceNumber(1).
+		WithSMPPError(ESME_ROK)
 	expectedBuf.header.commandLength = 25
-	comparePdu(*resp_pdu, expectedBuf,t)
+	comparePdu(*resp_pdu, expectedBuf, t)
 	if err != nil {
 		t.Errorf("We didn't receive what we sent")
 	}
@@ -294,7 +294,7 @@ func TestClosingOneConnectionCloseOnSMSCSide(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 	}
 	x := smsc_connection.clientSocket.Close()
-	if smsc_connection.getEsmeState() != CLOSED ||  !errors.Is(x,net.ErrClosed) {
+	if smsc_connection.getEsmeState() != CLOSED || !errors.Is(x, net.ErrClosed) {
 		t.Errorf("Connection didn't close cleanly!")
 	}
 
@@ -334,13 +334,6 @@ func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_ri
 	}
 }
 
-func InstantiateEsme(serverAddress net.Addr) (esme ESME, err error) {
-	clientSocket, err := net.Dial(connType, serverAddress.String())
-	esme = ESME{clientSocket, *NewESMEState(OPEN), 0, make(chan bool)}
-	go esme._close()
-	return esme, err
-}
-
 func StartSmscSimulatorServer() (smsc *SMSC, err error) {
 	serverSocket, err := net.Listen(connType, connhost+":"+connport)
 	smsc = NewSMSC(&serverSocket)
@@ -378,7 +371,7 @@ func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME, error) {
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
 	}
-	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr())
+	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
 	if err != nil {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
@@ -440,7 +433,7 @@ func handleOperations(e *ESME) (formated_error error) {
 		formated_error = handleBindOperation(receivedPdu, e)
 	}
 	if receivedPdu.header.commandId == "submit_sm" {
-		if isTransmitterState(e) {
+		if e.isTransmitterState() {
 			formated_error = ReplyToSubmitSM(*e, receivedPdu)
 		} else {
 			ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
@@ -456,17 +449,17 @@ func handleOperations(e *ESME) (formated_error error) {
 	return formated_error
 }
 
-func isTransmitterState(e *ESME) bool {
-	currentState:= e.getEsmeState()
+func (e *ESME) isTransmitterState() bool {
+	currentState := e.getEsmeState()
 	return (currentState == BOUND_TX || currentState == BOUND_TRX)
 }
 
-func isReceiverState(e *ESME) bool {
-	currentState:= e.getEsmeState()
+func (e *ESME) isReceiverState() bool {
+	currentState := e.getEsmeState()
 	return (currentState == BOUND_RX || currentState == BOUND_TRX)
 }
 
-func (e *ESME)receivePduFromESME() (PDU, error) {
+func (e *ESME) receivePduFromESME() (PDU, error) {
 	readBuf, LastError := readPduBytesFromConnection(e.clientSocket, time.Now().Add(1*time.Second))
 	if LastError != nil {
 		if errors.Is(LastError, io.EOF) || errors.Is(LastError, net.ErrClosed) {

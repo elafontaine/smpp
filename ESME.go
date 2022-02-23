@@ -23,6 +23,16 @@ const (
 	CLOSED    = "CLOSED"
 )
 
+func InstantiateEsme(serverAddress net.Addr, connType string) (esme ESME, err error) {
+	clientSocket, err := net.Dial(connType, serverAddress.String())
+	if err != nil {
+		return ESME{}, err
+	}
+	esme = ESME{clientSocket, *NewESMEState(OPEN), 0, make(chan bool)}
+	go esme._close()
+	return esme, err
+}
+
 func (e *ESME) Close() {
 	if e.getEsmeState() != CLOSED {
 		e.closeChan <- true
@@ -38,11 +48,6 @@ func (e *ESME) _close() {
 
 func (e *ESME) getEsmeState() string {
 	return e.state.getState()
-}
-
-func (state *State) getState() string {
-	state.askForState<- true
-	return <-state.reportState
 }
 
 func (e *ESME) bindTransmitter(systemID, password string) error {

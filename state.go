@@ -32,3 +32,8 @@ func (state *State) stateDispatcher() {
 		}
 	}
 }
+
+func (state *State) getState() string {
+	state.askForState<- true
+	return <-state.reportState
+}
