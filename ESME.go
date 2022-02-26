@@ -23,18 +23,18 @@ const (
 	CLOSED    = "CLOSED"
 )
 
-func InstantiateEsme(serverAddress net.Addr, connType string) (esme ESME, err error) {
+func InstantiateEsme(serverAddress net.Addr, connType string) (esme *ESME, err error) {
 	clientSocket, err := net.Dial(connType, serverAddress.String())
 	if err != nil {
-		return ESME{}, err
+		return nil, err
 	}
-	return NewEsme(esme, clientSocket)
+	return NewEsme(&clientSocket), nil
 }
 
-func NewEsme(esme ESME, clientSocket net.Conn) (ESME, error) {
-	esme = ESME{clientSocket, *NewESMEState(OPEN), 0, make(chan bool)}
+func NewEsme(clientSocket *net.Conn) *ESME {
+	esme := &ESME{*clientSocket, *NewESMEState(OPEN), 0, make(chan bool)}
 	go esme._close()
-	return esme, nil
+	return esme
 }
 
 func (e *ESME) Close() {
@@ -46,7 +46,7 @@ func (e *ESME) Close() {
 func (e *ESME) _close() {
 	<-e.closeChan
 	e.state.setState <- CLOSED
-	e.state.done<- true
+	e.state.done <- true
 	e.clientSocket.Close()
 }
 

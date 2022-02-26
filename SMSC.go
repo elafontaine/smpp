@@ -16,9 +16,12 @@ type SMSC struct {
 }
 
 func NewSMSC(listeningSocket *net.Listener) (s *SMSC) {
-	s = &SMSC{listeningSocket: *listeningSocket, ESMEs: atomic.Value{}}
+	s = &SMSC{
+		listeningSocket: *listeningSocket,
+		State: *NewESMEState(LISTENING),
+		ESMEs: atomic.Value{},
+		}
 	s.ESMEs.Store([]*ESME{})
-	s.State = *NewESMEState(LISTENING)
 	return s
 }
 
@@ -27,13 +30,7 @@ func (smsc *SMSC) AcceptNewConnectionFromSMSC() (e *ESME, err error) {
 	if err != nil {
 		return nil, err
 	}
-	e = &ESME{
-		clientSocket:   serverConnectionSocket,
-		state:          *NewESMEState(OPEN),
-		sequenceNumber: 0,
-		closeChan:      make(chan bool),
-	}
-	go e._close()
+	e = NewEsme(&serverConnectionSocket)
 
 	old_connections := smsc.ESMEs.Load().([]*ESME)
 	new_connections := append(old_connections, e)

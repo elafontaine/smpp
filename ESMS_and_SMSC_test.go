@@ -377,7 +377,7 @@ func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME) {
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
 	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0].clientSocket
-	return smsc, smsc_connection, &Esme
+	return smsc, smsc_connection, Esme
 }
 
 func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
