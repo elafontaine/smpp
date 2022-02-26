@@ -1,7 +1,6 @@
 package smpp
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -21,11 +20,6 @@ const (
 	invalidUserName = "InvalidUser"
 )
 
-var (
-	WarningSmppLogger *log.Logger
-	InfoSmppLogger    *log.Logger
-	ErrorSmppLogger   *log.Logger
-)
 
 func init() {
 	InfoSmppLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -33,39 +27,6 @@ func init() {
 	ErrorSmppLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
-func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
-	smsc, smsc_connection, Esme := ConnectEsmeAndSmscTogether(t)
-	defer CloseAndAssertClean(smsc, Esme, t)
-
-	LastError := Esme.bindTransmitter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
-	if LastError != nil {
-		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
-	}
-	secondPdu := NewSubmitSM()
-	sequence_number, LastError := Esme.send(&secondPdu)
-	if sequence_number != 2 {
-		t.Errorf("Sending sequence number isn't as expected !")
-	}
-	if LastError != nil {
-		t.Errorf("Error writing : %v", LastError)
-	}
-	readBuf, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
-	if LastError != nil {
-		t.Errorf("Couldn't read on a newly established Connection: \n err =%v", LastError)
-	}
-	expectedBuf, err := EncodePdu(NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1))
-	if !bytes.Equal(readBuf, expectedBuf) || err != nil {
-		t.Errorf("We didn't receive the expected first PDU we sent : %v ", err)
-	}
-	readSecondPdu, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
-	if LastError != nil {
-		t.Errorf("We didn't read the second PDU we sent correctly : %v", LastError)
-	}
-	expectedBytes, LastError := EncodePdu(secondPdu.WithSequenceNumber(2))
-	if !bytes.Equal(readSecondPdu, expectedBytes) || LastError != nil {
-		t.Errorf("We didn't receive expected PDU (sequence Number wrong?) : %v", LastError)
-	}
-}
 
 func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	type args struct {
@@ -241,63 +202,15 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %v", err2)
 	}
-	if err != nil || err2 != nil {
-		t.Errorf("Couldn't read on a newly established Connection: \n err =%v\n err2 =%v", err, err2)
-	}
 	expectedBuf := NewBindTransmitterResp().
 		WithSystemId(validSystemID).
 		WithSequenceNumber(1).
 		WithSMPPError(ESME_ROK)
 	expectedBuf.header.commandLength = 25
 	comparePdu(*resp_pdu, expectedBuf, t)
-	if err != nil {
-		t.Errorf("We didn't receive what we sent")
-	}
 	if !assertWeHaveActiveConnections(smsc, 2) {
 		t.Errorf("We didn't have the expected amount of connections!")
 	}
-}
-
-func TestSmscCanRefuseConnectionHavingWrongCredentials(t *testing.T) {
-	smsc, _, esme := ConnectEsmeAndSmscTogether(t)
-	defer CloseAndAssertClean(smsc, esme, t)
-
-	smsc.ensureCleanUpOfEsmes(smsc.ESMEs.Load().([]*ESME)[0])
-
-	pdu_resp, err := esme.bindTransmitter2("WrongSystemId", validPassword) // this shouldn't return until we get a "OK" from SMSC
-	if err != nil && pdu_resp == nil {
-		t.Errorf("We didn't receive the expected error response from SMSC.")
-	} else if err == nil && pdu_resp.header.commandStatus == ESME_ROK {
-		t.Errorf("Error, we shouldn't succeed to bind with wrong password!")
-	} else if pdu_resp.header.commandStatus != ESME_RBINDFAIL {
-		t.Errorf("We didn't receive the expected error")
-	}
-}
-
-func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
-	defer CloseAndAssertClean(smsc, Esme, t)
-
-	smsc.Close()
-}
-
-func TestClosingOneConnectionCloseOnSMSCSide(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
-	defer CloseAndAssertClean(smsc, Esme, t)
-	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0]
-	smsc.ensureCleanUpOfEsmes(smsc_connection)
-
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
-	Esme.Close()
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 0)
-	for smsc_connection.getEsmeState() != CLOSED {
-		time.Sleep(200 * time.Millisecond)
-	}
-	x := smsc_connection.clientSocket.Close()
-	if smsc_connection.getEsmeState() != CLOSED || !errors.Is(x, net.ErrClosed) {
-		t.Errorf("Connection didn't close cleanly!")
-	}
-
 }
 
 func CloseAndAssertClean(s *SMSC, e *ESME, t *testing.T) {
@@ -307,24 +220,6 @@ func CloseAndAssertClean(s *SMSC, e *ESME, t *testing.T) {
 	AssertSmscIsClosedAndClean(s, t)
 }
 
-func AssertSmscIsClosedAndClean(smsc *SMSC, t *testing.T) {
-	assertListenerIsClosed(smsc, t)
-	assertAllRemainingConnectionsAreClosed(smsc, t)
-}
-
-func assertAllRemainingConnectionsAreClosed(smsc *SMSC, t *testing.T) {
-	for _, conn := range smsc.ESMEs.Load().([]*ESME) {
-		if conn.getEsmeState() != CLOSED {
-			t.Error("At least one connection wasn't closed!")
-		}
-	}
-}
-
-func assertListenerIsClosed(smsc *SMSC, t *testing.T) {
-	if err := smsc.listeningSocket.Close(); err == nil {
-		t.Errorf("The listening socket wasn't closed! %v", err)
-	}
-}
 
 func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_right_number bool) {
 	if smsc.GetNumberOfConnection() == number_of_connections {
@@ -342,22 +237,12 @@ func StartSmscSimulatorServer() (smsc *SMSC, err error) {
 
 func StartSmscSimulatorServerAndAccept() (smsc *SMSC, err error) {
 	smsc, err = StartSmscSimulatorServer()
-	go smsc.AcceptAllNewConnection()
+	smsc.start()
 	return smsc, err
 }
 
-func (s *SMSC) AcceptAllNewConnection() {
-	for s.State.getState() != CLOSED {
-		_, err := s.AcceptNewConnectionFromSMSC()
-		if err != nil {
-			log.Printf("SMSC wasn't able to accept a new connection: %v", err)
-			if errors.Is(err, net.ErrClosed) {
-				break //can't get new connection
-			}
-			continue
-		}
-	}
-}
+
+
 
 func (s *SMSC) ensureCleanUpOfEsmes(e *ESME) {
 	go func() {

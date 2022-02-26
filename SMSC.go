@@ -1,6 +1,7 @@
 package smpp
 
 import (
+	"errors"
 	"net"
 	"sync/atomic"
 )
@@ -54,6 +55,10 @@ func (s *SMSC) GetNumberOfConnection() int {
 	return len(s.ESMEs.Load().([]*ESME))
 }
 
+func (s *SMSC) start() {
+	go s.AcceptAllNewConnection()
+}
+
 func (s *SMSC) Close() {
 	for _, conn := range s.ESMEs.Load().([]*ESME) {
 		if conn.getEsmeState() != CLOSED {
@@ -63,5 +68,18 @@ func (s *SMSC) Close() {
 	s.listeningSocket.Close()
 	if s.State.getState() != CLOSED {
 		s.State.setState <- CLOSED
+	}
+}
+
+func (s *SMSC) AcceptAllNewConnection() {
+	for s.State.getState() != CLOSED {
+		_, err := s.AcceptNewConnectionFromSMSC()
+		if err != nil {
+			InfoSmppLogger.Printf("SMSC wasn't able to accept a new connection: %v", err)
+			if errors.Is(err, net.ErrClosed) {
+				break //can't get new connection
+			}
+			continue
+		}
 	}
 }

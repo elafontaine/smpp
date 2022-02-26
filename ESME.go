@@ -4,8 +4,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"time"
+)
+
+var (
+	WarningSmppLogger *log.Logger
+	InfoSmppLogger    *log.Logger
+	ErrorSmppLogger   *log.Logger
 )
 
 type ESME struct {
