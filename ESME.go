@@ -28,9 +28,13 @@ func InstantiateEsme(serverAddress net.Addr, connType string) (esme ESME, err er
 	if err != nil {
 		return ESME{}, err
 	}
+	return NewEsme(esme, clientSocket)
+}
+
+func NewEsme(esme ESME, clientSocket net.Conn) (ESME, error) {
 	esme = ESME{clientSocket, *NewESMEState(OPEN), 0, make(chan bool)}
 	go esme._close()
-	return esme, err
+	return esme, nil
 }
 
 func (e *ESME) Close() {

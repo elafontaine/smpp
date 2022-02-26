@@ -34,7 +34,7 @@ func init() {
 }
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
-	smsc, smsc_connection, Esme, _ := ConnectEsmeAndSmscTogether(t)
+	smsc, smsc_connection, Esme := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	LastError := Esme.bindTransmitter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
@@ -82,7 +82,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
+			smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			LastError := tt.args.bind_pdu(Esme, validSystemID, validPassword)
@@ -130,7 +130,7 @@ func TestReactionFromSmscOnFirstPDU(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
+			smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			_, LastError := Esme.send(tt.args.bind_pdu)
@@ -189,7 +189,7 @@ func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v", tt.name), func(t *testing.T) {
-			smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
+			smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			Esme.state.setState <- tt.args.bind_state
@@ -227,7 +227,7 @@ func ReplyToSubmitSM(e ESME, receivedPdu PDU) (err error) {
 }
 
 func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
-	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
@@ -259,7 +259,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 }
 
 func TestSmscCanRefuseConnectionHavingWrongCredentials(t *testing.T) {
-	smsc, _, esme, _ := ConnectEsmeAndSmscTogether(t)
+	smsc, _, esme := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 
 	smsc.ensureCleanUpOfEsmes(smsc.ESMEs.Load().([]*ESME)[0])
@@ -275,14 +275,14 @@ func TestSmscCanRefuseConnectionHavingWrongCredentials(t *testing.T) {
 }
 
 func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
-	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	smsc.Close()
 }
 
 func TestClosingOneConnectionCloseOnSMSCSide(t *testing.T) {
-	smsc, _, Esme, _ := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0]
 	smsc.ensureCleanUpOfEsmes(smsc_connection)
@@ -366,7 +366,7 @@ func (s *SMSC) ensureCleanUpOfEsmes(e *ESME) {
 	}()
 }
 
-func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME, error) {
+func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME) {
 	smsc, err := StartSmscSimulatorServerAndAccept()
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
@@ -377,7 +377,7 @@ func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME, error) {
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
 	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0].clientSocket
-	return smsc, smsc_connection, &Esme, err
+	return smsc, smsc_connection, &Esme
 }
 
 func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
