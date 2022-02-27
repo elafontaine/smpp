@@ -45,8 +45,13 @@ func NewEsme(clientSocket *net.Conn) *ESME {
 }
 
 func (e *ESME) Close() {
-	if e.getEsmeState() != CLOSED {
-		e.closeChan <- true
+	for e.getEsmeState() != CLOSED {
+		select {
+		case e.closeChan <- true:
+			continue
+		default:
+			time.Sleep(0)
+		}
 	}
 }
 
