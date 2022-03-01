@@ -14,41 +14,77 @@ type SMSC struct {
 	listeningSocket net.Listener
 	ESMEs           atomic.Value
 	State           State
+	NewConnChan     chan net.Conn
+	NewEsmeChan     chan ESME
+	RemoveEsmeChan  chan *ESME
+	RemoveDoneChan  chan bool
 }
 
 func NewSMSC(listeningSocket *net.Listener) (s *SMSC) {
 	s = &SMSC{
 		listeningSocket: *listeningSocket,
-		State: *NewESMEState(LISTENING),
-		ESMEs: atomic.Value{},
-		}
+		State:           *NewESMEState(LISTENING),
+		ESMEs:           atomic.Value{},
+		NewConnChan:     make(chan net.Conn),
+		NewEsmeChan:     make(chan ESME),
+		RemoveEsmeChan:  make(chan *ESME),
+		RemoveDoneChan:  make(chan bool),
+	}
 	s.ESMEs.Store([]*ESME{})
+	go s.smscControlLoop()
 	return s
 }
 
-func (smsc *SMSC) AcceptNewConnectionFromSMSC() (e *ESME, err error) {
+func (smsc *SMSC) AcceptNewConnectionFromSMSC() (*ESME, error) {
 	serverConnectionSocket, err := smsc.listeningSocket.Accept()
 	if err != nil {
 		return nil, err
 	}
-	e = NewEsme(&serverConnectionSocket)
+	smsc.NewConnChan <- serverConnectionSocket
+	e := <-smsc.NewEsmeChan
+	return &e, nil
+}
 
+func (s *SMSC) smscControlLoop() {
+	for s.State.getState() != CLOSED {
+		select {
+		case serverConnectionSocket := <-s.NewConnChan:
+			s.createAndAppendNewEsme(serverConnectionSocket)
+		case e := <-s.RemoveEsmeChan:
+			s._closeAndRemoveEsme(e)
+			s.RemoveDoneChan <- true
+		}
+	}
+}
+
+func (smsc *SMSC) createAndAppendNewEsme(serverConnectionSocket net.Conn) {
+	e := NewEsme(&serverConnectionSocket)
+	appendNewEsmeToSMSC(smsc, e)
+	smsc.NewEsmeChan <- *e
+}
+
+func appendNewEsmeToSMSC(smsc *SMSC, e *ESME) {
 	old_connections := smsc.ESMEs.Load().([]*ESME)
 	new_connections := append(old_connections, e)
 	smsc.ESMEs.Store(new_connections)
-	return e, err
 }
 
-func (s *SMSC) removeClosedEsmeFromSmsc(e *ESME) {
+func (s *SMSC) closeAndRemoveEsme(e *ESME) {
+	s.RemoveEsmeChan <- e
+	<- s.RemoveDoneChan
+}
+
+func (s *SMSC) _closeAndRemoveEsme(e *ESME) {
 	e.Close()
 	old_connections := s.ESMEs.Load().([]*ESME)
-	new_connections := old_connections[:0]
+	new_connections := []*ESME{}
 	for _, x := range old_connections {
 		if x != e {
-			new_connections = append(new_connections, x)
+			new_connections = append(new_connections, x) //write in place
 		}
 	}
 	s.ESMEs.Store(new_connections)
+
 }
 
 func (s *SMSC) GetNumberOfConnection() int {
@@ -60,15 +96,28 @@ func (s *SMSC) start() {
 }
 
 func (s *SMSC) Close() {
-	for _, conn := range s.ESMEs.Load().([]*ESME) {
+	esme_chan := s.getEsmeFromChannel()
+	for conn := range esme_chan { //read
 		if conn.getEsmeState() != CLOSED {
-			conn.Close()
+			s.closeAndRemoveEsme(conn)
 		}
 	}
 	s.listeningSocket.Close()
 	if s.State.getState() != CLOSED {
 		s.State.setState <- CLOSED
 	}
+}
+
+func (s *SMSC) getEsmeFromChannel() <-chan *ESME {
+	newChannel := make(chan *ESME)
+	go func() {
+		copy := s.ESMEs.Load().([]*ESME)
+		for _, e := range copy {
+			newChannel <- e
+		}
+		close(newChannel)
+	}()
+	return newChannel
 }
 
 func (s *SMSC) AcceptAllNewConnection() {

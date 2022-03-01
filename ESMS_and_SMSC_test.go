@@ -20,13 +20,11 @@ const (
 	invalidUserName = "InvalidUser"
 )
 
-
 func init() {
 	InfoSmppLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 	WarningSmppLogger = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
 	ErrorSmppLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
-
 
 func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	type args struct {
@@ -220,7 +218,6 @@ func CloseAndAssertClean(s *SMSC, e *ESME, t *testing.T) {
 	AssertSmscIsClosedAndClean(s, t)
 }
 
-
 func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_right_number bool) {
 	if smsc.GetNumberOfConnection() == number_of_connections {
 		return true
@@ -241,12 +238,9 @@ func StartSmscSimulatorServerAndAccept() (smsc *SMSC, err error) {
 	return smsc, err
 }
 
-
-
-
 func (s *SMSC) ensureCleanUpOfEsmes(e *ESME) {
 	go func() {
-		defer s.removeClosedEsmeFromSmsc(e)
+		defer s.closeAndRemoveEsme(e)
 		handleConnection(e)
 	}()
 }

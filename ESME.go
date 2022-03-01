@@ -17,7 +17,7 @@ var (
 
 type ESME struct {
 	clientSocket   net.Conn
-	state          State
+	state          *State
 	sequenceNumber int
 	closeChan      chan bool
 }
@@ -39,7 +39,7 @@ func InstantiateEsme(serverAddress net.Addr, connType string) (esme *ESME, err e
 }
 
 func NewEsme(clientSocket *net.Conn) *ESME {
-	esme := &ESME{*clientSocket, *NewESMEState(OPEN), 0, make(chan bool)}
+	esme := &ESME{*clientSocket, NewESMEState(OPEN), 0, make(chan bool)}
 	go esme._close()
 	return esme
 }
