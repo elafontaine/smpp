@@ -57,9 +57,9 @@ func (e *ESME) Close() {
 
 func (e *ESME) _close() {
 	<-e.closeChan
+	e.clientSocket.Close()
 	e.state.setState <- CLOSED
 	e.state.done <- true
-	e.clientSocket.Close()
 }
 
 func (e *ESME) getEsmeState() string {

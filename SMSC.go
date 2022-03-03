@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -53,6 +54,8 @@ func (s *SMSC) smscControlLoop() {
 		case e := <-s.RemoveEsmeChan:
 			s._closeAndRemoveEsme(e)
 			s.RemoveDoneChan <- true
+		default:
+			time.Sleep(0)
 		}
 	}
 }
@@ -71,7 +74,7 @@ func appendNewEsmeToSMSC(smsc *SMSC, e *ESME) {
 
 func (s *SMSC) closeAndRemoveEsme(e *ESME) {
 	s.RemoveEsmeChan <- e
-	<- s.RemoveDoneChan
+	<-s.RemoveDoneChan
 }
 
 func (s *SMSC) _closeAndRemoveEsme(e *ESME) {
@@ -80,7 +83,7 @@ func (s *SMSC) _closeAndRemoveEsme(e *ESME) {
 	new_connections := []*ESME{}
 	for _, x := range old_connections {
 		if x != e {
-			new_connections = append(new_connections, x) //write in place
+			new_connections = append(new_connections, x)
 		}
 	}
 	s.ESMEs.Store(new_connections)
@@ -105,6 +108,7 @@ func (s *SMSC) Close() {
 	s.listeningSocket.Close()
 	if s.State.getState() != CLOSED {
 		s.State.setState <- CLOSED
+		s.State.done <- true
 	}
 }
 
