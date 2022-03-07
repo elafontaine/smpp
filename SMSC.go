@@ -19,9 +19,11 @@ type SMSC struct {
 	NewEsmeChan     chan ESME
 	RemoveEsmeChan  chan *ESME
 	RemoveDoneChan  chan bool
+	SystemId		string
+	Password		string
 }
 
-func NewSMSC(listeningSocket *net.Listener) (s *SMSC) {
+func NewSMSC(listeningSocket *net.Listener, SystemId string, Password string) (s *SMSC) {
 	s = &SMSC{
 		listeningSocket: *listeningSocket,
 		State:           *NewESMEState(LISTENING),
@@ -30,6 +32,8 @@ func NewSMSC(listeningSocket *net.Listener) (s *SMSC) {
 		NewEsmeChan:     make(chan ESME),
 		RemoveEsmeChan:  make(chan *ESME),
 		RemoveDoneChan:  make(chan bool),
+		SystemId:		 SystemId,
+		Password:        Password,
 	}
 	s.ESMEs.Store([]*ESME{})
 	go s.smscControlLoop()

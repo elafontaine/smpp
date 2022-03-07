@@ -228,7 +228,7 @@ func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_ri
 
 func StartSmscSimulatorServer() (smsc *SMSC, err error) {
 	serverSocket, err := net.Listen(connType, connhost+":"+connport)
-	smsc = NewSMSC(&serverSocket)
+	smsc = NewSMSC(&serverSocket, validSystemID, validPassword)
 	return smsc, err
 }
 
