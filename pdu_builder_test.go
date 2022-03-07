@@ -238,7 +238,7 @@ func TestEnquiryLink(t *testing.T) {
 
 	expectedEnquiryLink := PDU{
 		header: Header{
-			commandId: "enquire_link",
+			commandId:     "enquire_link",
 			commandStatus: ESME_ROK,
 		},
 	}
@@ -256,7 +256,7 @@ func TestEnquiryLinkResp(t *testing.T) {
 
 	expectedEnquiryLink := PDU{
 		header: Header{
-			commandId: "enquire_link_resp",
+			commandId:     "enquire_link_resp",
 			commandStatus: ESME_ROK,
 		},
 		body: Body{

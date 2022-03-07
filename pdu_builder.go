@@ -1,6 +1,6 @@
 package smpp
 
-func defaultHeader() (Header) {
+func defaultHeader() Header {
 	return Header{
 		commandLength:  0,
 		commandId:      "generick_nack",
@@ -12,7 +12,7 @@ func defaultHeader() (Header) {
 /* Sane Defaults objects */
 func NewGenerickNack() PDU {
 	header := defaultHeader()
-	return PDU{ header: header}
+	return PDU{header: header}
 }
 
 func NewEnquiryLink() PDU {

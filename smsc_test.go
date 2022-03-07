@@ -30,7 +30,6 @@ func TestClosingOneConnectionCloseOnSMSCSide(t *testing.T) {
 	if smsc_connection.getEsmeState() != CLOSED || !errors.Is(closeResult, net.ErrClosed) {
 		t.Errorf("Connection didn't close cleanly!")
 	}
-
 }
 
 func AssertSmscIsClosedAndClean(smsc *SMSC, t *testing.T) {

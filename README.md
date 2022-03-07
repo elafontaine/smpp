@@ -3,7 +3,7 @@ SMPP (a golang library)
 
 [![codecov](https://codecov.io/gh/elafontaine/smpp/branch/master/graph/badge.svg?token=5A5N54FX17)](https://codecov.io/gh/elafontaine/smpp)
 
-Why another ?
+Why another smpp library?
 -------------
 Because I believe doing something using basic types is easier on people to understand. Having to use Specific types for
 instantiating helps, but when you have to expect an object to be multiple types and handle special cases, I believe a
@@ -46,17 +46,21 @@ Now, this is not really useful by itself, unless you have an ESME object you cou
 
 ```
 clientSocket, err := net.Dial("tcp", serverAddress.String())
-e:= ESME{clientSocket, *NewESMEState(OPEN), 0, make(chan bool)}
+e:= NewEsme(clientSocket)
 
 ```
 The `ESME` object has some convenience functions at the moment and but is currently underwork... 
 I know that I want people to be able to ask for "one ESME, please!" and be able to provide the framework 
-for handling the SMPP exchange protocol value through the go channels.  So the ESME will probably evolve 
+for handling the SMPP exchange protocol value through the golang channels.  So the ESME will probably evolve 
 into a mechanics of passing PDU objects or bytes through a channel (probably bytes as there is no validation
 on PDU objects themselves, and I want the user to receive the error, not the internals of the ESME).
 
-The `SMSC` object is currently not made for prod and instantiate ESMEs for each connection.  There is do
+The `SMSC` object is currently not made for prod and instantiate ESMEs for each connection.  There is some
 logic at the moment for dispatching messages, but it would probably be using the same as the ESME when they're ready.
 
+How to register custom functions for managing the SMPP session
+--------------------------------------------------------------
+
+Currently being worked on.
 
 

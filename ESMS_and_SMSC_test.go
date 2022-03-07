@@ -67,7 +67,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	}
 }
 
-func TestReactionFromSmscOnFirstPDU(t *testing.T) {
+func TestReactionFromSmscOnFirstPDUForDefaultBehaviour(t *testing.T) {
 	bindReceiver := NewBindReceiver().WithSystemId(validSystemID).WithPassword(validPassword)
 	bindTransceiver := NewBindTransceiver().WithSystemId(validSystemID).WithPassword(validPassword)
 	bindTransmitter := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword)
