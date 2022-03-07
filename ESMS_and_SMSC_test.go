@@ -49,16 +49,16 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
 			}
-			err := handleOperations(smsc.ESMEs.Load().([]*ESME)[0])
-			if err != nil {
-				t.Errorf("Error handling the binding operation on SMSC : %v", err)
+			LastError = handleOperations(smsc.ESMEs.Load().([]*ESME)[0])
+			if LastError != nil {
+				t.Errorf("Error handling the binding operation on SMSC : %v", LastError)
 			}
-			_, err = waitForBindResponse(Esme)
-			if err != nil {
-				t.Errorf("Error handling the answer from SMSC : %v", err)
+			_, LastError = waitForBindResponse(Esme)
+			if LastError != nil {
+				t.Errorf("Error handling the answer from SMSC : %v", LastError)
 			}
 			if state := Esme.getEsmeState(); state != tt.wantBoundAs {
-				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, err)
+				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, LastError)
 			}
 			if Esme.state.getState() != smsc.ESMEs.Load().([]*ESME)[0].state.getState() {
 				t.Errorf("The state isn't the same on the SMSC connection and ESME")
@@ -115,7 +115,7 @@ func TestReactionFromSmscOnFirstPDUForDefaultBehaviour(t *testing.T) {
 	}
 }
 
-func TestReactionFromBindedEsmeAsTransmitter(t *testing.T) {
+func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 	type args struct {
 		send_pdu   PDU
 		bind_state string
