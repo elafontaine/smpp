@@ -174,7 +174,6 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 	}
 }
 
-
 func CloseAndAssertClean(s *SMSC, e *ESME, t *testing.T) {
 	e.Close()
 	s.Close()
@@ -247,38 +246,51 @@ func handleOperations(e *ESME) (formated_error error) {
 
 	ABindOperation := IsBindOperation(receivedPdu)
 	if e.getEsmeState() == OPEN && !ABindOperation {
-		ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
-		formated_error = fmt.Errorf("We didn't received expected bind operation")
-		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
-		_, err := e.send(&ResponsePdu)
-		if err != nil {
-			return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
-		}
+		formated_error = e.handleNonBindedOperations(receivedPdu)
 	}
 	if receivedPdu.header.commandId == "deliver_sm" {
-		ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
-		formated_error = fmt.Errorf("We received a deliver_sm on a SMSC which isn't supposed to happen.")
-		ResponsePdu = ResponsePdu.WithSMPPError(ESME_RINVBNDSTS).WithMessageId("")
-		_, err := e.send(&ResponsePdu)
-		if err != nil {
-			return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
-		}
+		formated_error = e.HandleDeliverSmPduReceived(receivedPdu)
 	}
 	if ABindOperation {
 		formated_error = handleBindOperation(receivedPdu, e)
 	}
 	if receivedPdu.header.commandId == "submit_sm" {
-		if e.isTransmitterState() {
-			formated_error = ReplyToSubmitSM(*e, receivedPdu)
-		} else {
-			ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
-			ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
-			_, formated_error = e.send(&ResponsePdu)
-
-		}
+		formated_error = e.handleSubmitSmPduReceived(receivedPdu)
 	}
 	if receivedPdu.header.commandId == "enquire_link" {
-		ResponsePdu := NewEnquiryLinkResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
+		formated_error = e.handleEnquiryLinkPduReceived(receivedPdu)
+	}
+	return formated_error
+}
+
+func (e *ESME) handleNonBindedOperations(receivedPdu PDU) (formated_error error) {
+	ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
+	ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
+	_, formated_error = e.send(&ResponsePdu)
+	return formated_error
+}
+
+func (e *ESME) HandleDeliverSmPduReceived(receivedPdu PDU) (formated_error error) {
+	ResponsePdu := receivedPdu.
+		WithCommandId(receivedPdu.header.commandId + "_resp").
+		WithSMPPError(ESME_RINVBNDSTS).
+		WithMessageId("")
+	_, formated_error = e.send(&ResponsePdu)
+	return formated_error
+}
+
+func (e *ESME) handleEnquiryLinkPduReceived(receivedPdu PDU) (formated_error error) {
+	ResponsePdu := NewEnquiryLinkResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
+	_, formated_error = e.send(&ResponsePdu)
+	return formated_error
+}
+
+func (e *ESME) handleSubmitSmPduReceived(receivedPdu PDU) (formated_error error) {
+	if e.isTransmitterState() {
+		formated_error = ReplyToSubmitSM(*e, receivedPdu)
+	} else {
+		ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
+		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
 		_, formated_error = e.send(&ResponsePdu)
 	}
 	return formated_error
@@ -293,8 +305,6 @@ func (e *ESME) isReceiverState() bool {
 	currentState := e.getEsmeState()
 	return (currentState == BOUND_RX || currentState == BOUND_TRX)
 }
-
-
 
 func handleBindOperation(receivedPdu PDU, e *ESME) error {
 	ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
