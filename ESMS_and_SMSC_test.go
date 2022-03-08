@@ -250,11 +250,7 @@ func handleOperations(e *ESME) (formated_error error) {
 		ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
 		formated_error = fmt.Errorf("We didn't received expected bind operation")
 		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
-		bindResponse, err := EncodePdu(ResponsePdu)
-		if err != nil {
-			return fmt.Errorf("Encoding bind response failed : %v", err)
-		}
-		_, err = (e.clientSocket).Write(bindResponse)
+		_, err := e.send(&ResponsePdu)
 		if err != nil {
 			return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
 		}
@@ -263,11 +259,7 @@ func handleOperations(e *ESME) (formated_error error) {
 		ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
 		formated_error = fmt.Errorf("We received a deliver_sm on a SMSC which isn't supposed to happen.")
 		ResponsePdu = ResponsePdu.WithSMPPError(ESME_RINVBNDSTS).WithMessageId("")
-		bindResponse, err := EncodePdu(ResponsePdu)
-		if err != nil {
-			return fmt.Errorf("Encoding bind response failed : %v", err)
-		}
-		_, err = (e.clientSocket).Write(bindResponse)
+		_, err := e.send(&ResponsePdu)
 		if err != nil {
 			return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
 		}
