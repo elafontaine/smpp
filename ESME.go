@@ -3,7 +3,9 @@ package smpp
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"time"
@@ -109,38 +111,13 @@ func (e *ESME) send(pdu *PDU) (seq_num int, err error) {
 	return seq_num, err
 }
 
-func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([]byte, error) {
-	buffer := bytes.Buffer{}
-	err := ConnectionSocket.SetDeadline(timeout)
+func waitForBindResponse(e *ESME) (pdu *PDU, err error) {
+	receivedPdu, err := e.receivePdu()
 	if err != nil {
 		return nil, err
 	}
-	readLengthBuffer := make([]byte, 4)
-	_, err = ConnectionSocket.Read(readLengthBuffer)
-	if err == nil {
-		length := int(binary.BigEndian.Uint32(readLengthBuffer))
-		if length <= 4 {
-			return nil, fmt.Errorf("Received malformed packet : %v", readLengthBuffer)
-		}
-		readBuf := make([]byte, length-4)
-		_, err = ConnectionSocket.Read(readBuf)
-		buffer.Write(readLengthBuffer)
-		buffer.Write(readBuf)
-	}
-	return buffer.Bytes(), err
-}
-
-func waitForBindResponse(Esme *ESME) (pdu *PDU, err error) {
-	receivedBuf, err := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
-	if err != nil {
-		return nil, err
-	}
-	parsedPdu, err := ParsePdu(receivedBuf)
-	pdu = &parsedPdu
-	if err != nil {
-		return nil, err
-	}
-	err = SetESMEStateFromSMSCResponse(pdu, Esme)
+	pdu = &receivedPdu
+	err = SetESMEStateFromSMSCResponse(pdu, e)
 	return pdu, err
 }
 
@@ -160,4 +137,37 @@ func SetESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
 		err = fmt.Errorf("The answer received wasn't OK or not the type we expected!")
 	}
 	return err
+}
+
+func (e *ESME) receivePdu() (PDU, error) {
+	readBuf, LastError := readPduBytesFromConnection(e.clientSocket, time.Now().Add(1*time.Second))
+	if LastError != nil {
+		if errors.Is(LastError, io.EOF) || errors.Is(LastError, net.ErrClosed) {
+			e.Close()
+		}
+		return PDU{}, fmt.Errorf("Couldn't read on a Connection: \n err =%v", LastError)
+	}
+	return ParsePdu(readBuf)
+}
+
+
+func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([]byte, error) {
+	buffer := bytes.Buffer{}
+	err := ConnectionSocket.SetDeadline(timeout)
+	if err != nil {
+		return nil, err
+	}
+	readLengthBuffer := make([]byte, 4)
+	_, err = ConnectionSocket.Read(readLengthBuffer)
+	if err == nil {
+		length := int(binary.BigEndian.Uint32(readLengthBuffer))
+		if length <= 4 {
+			return nil, fmt.Errorf("Received malformed packet : %v", readLengthBuffer)
+		}
+		readBuf := make([]byte, length-4)
+		_, err = ConnectionSocket.Read(readBuf)
+		buffer.Write(readLengthBuffer)
+		buffer.Write(readBuf)
+	}
+	return buffer.Bytes(), err
 }

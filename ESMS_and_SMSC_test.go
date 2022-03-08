@@ -1,9 +1,7 @@
 package smpp
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -176,40 +174,6 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 	}
 }
 
-func ReplyToSubmitSM(e ESME, receivedPdu PDU) (err error) {
-	submit_sm_resp_bytes, _ := EncodePdu(NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(1))
-	_, LastError := e.clientSocket.Write(submit_sm_resp_bytes)
-	if LastError != nil {
-		return fmt.Errorf("Couldn't write to esme socket: %v", LastError)
-	}
-	return nil
-}
-
-func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
-	defer CloseAndAssertClean(smsc, Esme, t)
-
-	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
-	if err != nil {
-		t.Errorf("couldn't connect client to server successfully: %v", err)
-	}
-	defer Esme2.Close()
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 2)
-	smsc.ensureCleanUpOfEsmes((smsc.ESMEs.Load().([]*ESME)[1]))
-	resp_pdu, err2 := Esme2.bindTransmitter2("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
-	if err2 != nil {
-		t.Errorf("Couldn't write to the socket PDU: %v", err2)
-	}
-	expectedBuf := NewBindTransmitterResp().
-		WithSystemId(validSystemID).
-		WithSequenceNumber(1).
-		WithSMPPError(ESME_ROK)
-	expectedBuf.header.commandLength = 25
-	comparePdu(*resp_pdu, expectedBuf, t)
-	if !assertWeHaveActiveConnections(smsc, 2) {
-		t.Errorf("We didn't have the expected amount of connections!")
-	}
-}
 
 func CloseAndAssertClean(s *SMSC, e *ESME, t *testing.T) {
 	e.Close()
@@ -276,7 +240,7 @@ func handleConnection(e *ESME) {
 }
 
 func handleOperations(e *ESME) (formated_error error) {
-	receivedPdu, formated_error := e.receivePduFromESME()
+	receivedPdu, formated_error := e.receivePdu()
 	if formated_error != nil {
 		return formated_error
 	}
@@ -338,20 +302,7 @@ func (e *ESME) isReceiverState() bool {
 	return (currentState == BOUND_RX || currentState == BOUND_TRX)
 }
 
-func (e *ESME) receivePduFromESME() (PDU, error) {
-	readBuf, LastError := readPduBytesFromConnection(e.clientSocket, time.Now().Add(1*time.Second))
-	if LastError != nil {
-		if errors.Is(LastError, io.EOF) || errors.Is(LastError, net.ErrClosed) {
-			e.Close()
-		}
-		return PDU{}, fmt.Errorf("Couldn't read on a Connection: \n err =%v", LastError)
-	}
-	receivedPdu, err := ParsePdu(readBuf)
-	if err != nil {
-		return PDU{}, fmt.Errorf("Couldn't parse received PDU!")
-	}
-	return receivedPdu, nil
-}
+
 
 func handleBindOperation(receivedPdu PDU, e *ESME) error {
 	ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
@@ -370,6 +321,15 @@ func handleBindOperation(receivedPdu PDU, e *ESME) error {
 	_, err = (e.clientSocket).Write(bindResponse)
 	if err != nil {
 		return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
+	}
+	return nil
+}
+
+func ReplyToSubmitSM(e ESME, receivedPdu PDU) (err error) {
+	submit_sm_resp_bytes, _ := EncodePdu(NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(1))
+	_, LastError := e.clientSocket.Write(submit_sm_resp_bytes)
+	if LastError != nil {
+		return fmt.Errorf("Couldn't write to esme socket: %v", LastError)
 	}
 	return nil
 }
