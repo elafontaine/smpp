@@ -243,7 +243,6 @@ func handleOperations(e *ESME) (formated_error error) {
 	if formated_error != nil {
 		return formated_error
 	}
-
 	ABindOperation := IsBindOperation(receivedPdu)
 	if e.getEsmeState() == OPEN && !ABindOperation {
 		formated_error = e.handleNonBindedOperations(receivedPdu)
@@ -251,14 +250,8 @@ func handleOperations(e *ESME) (formated_error error) {
 	if receivedPdu.header.commandId == "deliver_sm" {
 		formated_error = e.HandleDeliverSmPduReceived(receivedPdu)
 	}
-	if ABindOperation {
-		formated_error = handleBindOperation(receivedPdu, e)
-	}
-	if receivedPdu.header.commandId == "submit_sm" {
-		formated_error = e.handleSubmitSmPduReceived(receivedPdu)
-	}
-	if receivedPdu.header.commandId == "enquire_link" {
-		formated_error = e.handleEnquiryLinkPduReceived(receivedPdu)
+	if _, ok := e.commandFunctions[receivedPdu.header.commandId]; ok {
+		formated_error = e.commandFunctions[receivedPdu.header.commandId](e, receivedPdu)
 	}
 	return formated_error
 }
@@ -279,59 +272,3 @@ func (e *ESME) HandleDeliverSmPduReceived(receivedPdu PDU) (formated_error error
 	return formated_error
 }
 
-func (e *ESME) handleEnquiryLinkPduReceived(receivedPdu PDU) (formated_error error) {
-	ResponsePdu := NewEnquiryLinkResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
-	_, formated_error = e.send(&ResponsePdu)
-	return formated_error
-}
-
-func (e *ESME) handleSubmitSmPduReceived(receivedPdu PDU) (formated_error error) {
-	if e.isTransmitterState() {
-		formated_error = ReplyToSubmitSM(*e, receivedPdu)
-	} else {
-		ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
-		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
-		_, formated_error = e.send(&ResponsePdu)
-	}
-	return formated_error
-}
-
-func (e *ESME) isTransmitterState() bool {
-	currentState := e.getEsmeState()
-	return (currentState == BOUND_TX || currentState == BOUND_TRX)
-}
-
-func (e *ESME) isReceiverState() bool {
-	currentState := e.getEsmeState()
-	return (currentState == BOUND_RX || currentState == BOUND_TRX)
-}
-
-func handleBindOperation(receivedPdu PDU, e *ESME) error {
-	ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
-	if !receivedPdu.isSystemId(validSystemID) || !receivedPdu.isPassword(validPassword) {
-		ResponsePdu.header.commandStatus = ESME_RBINDFAIL
-		InfoSmppLogger.Printf("We didn't received expected credentials")
-	}
-	bindResponse, err := EncodePdu(ResponsePdu)
-	if err != nil {
-		return fmt.Errorf("Encoding bind response failed : %v", err)
-	}
-	err = SetESMEStateFromSMSCResponse(&ResponsePdu, e)
-	if err != nil {
-		InfoSmppLogger.Printf("Couldn't set the bind state on request!")
-	}
-	_, err = (e.clientSocket).Write(bindResponse)
-	if err != nil {
-		return fmt.Errorf("Couldn't write to the ESME from SMSC : %v", err)
-	}
-	return nil
-}
-
-func ReplyToSubmitSM(e ESME, receivedPdu PDU) (err error) {
-	submit_sm_resp_bytes, _ := EncodePdu(NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(1))
-	_, LastError := e.clientSocket.Write(submit_sm_resp_bytes)
-	if LastError != nil {
-		return fmt.Errorf("Couldn't write to esme socket: %v", LastError)
-	}
-	return nil
-}

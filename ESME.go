@@ -18,10 +18,11 @@ var (
 )
 
 type ESME struct {
-	clientSocket   net.Conn
-	state          *State
-	sequenceNumber int
-	closeChan      chan bool
+	clientSocket     net.Conn
+	state            *State
+	sequenceNumber   int
+	closeChan        chan bool
+	commandFunctions map[string]func(*ESME, PDU) error
 }
 
 const (
@@ -40,10 +41,23 @@ func InstantiateEsme(serverAddress net.Addr, connType string) (esme *ESME, err e
 	return NewEsme(&clientSocket), nil
 }
 
-func NewEsme(clientSocket *net.Conn) *ESME {
-	esme := &ESME{*clientSocket, NewESMEState(OPEN), 0, make(chan bool)}
-	go esme._close()
-	return esme
+func NewEsme(clientSocket *net.Conn) (e *ESME) {
+	e = &ESME{
+		*clientSocket,
+		NewESMEState(OPEN),
+		0,
+		make(chan bool),
+		map[string]func(*ESME, PDU) error{},
+	}
+	go e._close()
+	registerStandardBehaviours(e)
+	return e
+}
+
+func registerStandardBehaviours(e *ESME) {
+	e.commandFunctions["enquire_link"] = handleEnquiryLinkPduReceived
+	e.commandFunctions["submit_sm"] = handleSubmitSmPduReceived
+
 }
 
 func (e *ESME) Close() {
@@ -150,7 +164,6 @@ func (e *ESME) receivePdu() (PDU, error) {
 	return ParsePdu(readBuf)
 }
 
-
 func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([]byte, error) {
 	buffer := bytes.Buffer{}
 	err := ConnectionSocket.SetDeadline(timeout)
@@ -170,4 +183,14 @@ func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([
 		buffer.Write(readBuf)
 	}
 	return buffer.Bytes(), err
+}
+
+func (e *ESME) isTransmitterState() bool {
+	currentState := e.getEsmeState()
+	return (currentState == BOUND_TX || currentState == BOUND_TRX)
+}
+
+func (e *ESME) isReceiverState() bool {
+	currentState := e.getEsmeState()
+	return (currentState == BOUND_RX || currentState == BOUND_TRX)
 }

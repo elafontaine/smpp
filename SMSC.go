@@ -66,6 +66,9 @@ func (s *SMSC) smscControlLoop() {
 
 func (smsc *SMSC) createAndAppendNewEsme(serverConnectionSocket net.Conn) {
 	e := NewEsme(&serverConnectionSocket)
+	e.commandFunctions["bind_receiver"] = smsc.handleBindOperation
+	e.commandFunctions["bind_transceiver"] = smsc.handleBindOperation
+	e.commandFunctions["bind_transmitter"] = smsc.handleBindOperation
 	appendNewEsmeToSMSC(smsc, e)
 	smsc.NewEsmeChan <- *e
 }
