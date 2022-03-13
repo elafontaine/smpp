@@ -245,30 +245,11 @@ func handleOperations(e *ESME) (formated_error error) {
 	}
 	ABindOperation := IsBindOperation(receivedPdu)
 	if e.getEsmeState() == OPEN && !ABindOperation {
-		formated_error = e.handleNonBindedOperations(receivedPdu)
-	}
-	if receivedPdu.header.commandId == "deliver_sm" {
-		formated_error = e.HandleDeliverSmPduReceived(receivedPdu)
+		formated_error = handleNonBindedOperations(e,receivedPdu)
 	}
 	if _, ok := e.commandFunctions[receivedPdu.header.commandId]; ok {
 		formated_error = e.commandFunctions[receivedPdu.header.commandId](e, receivedPdu)
 	}
-	return formated_error
-}
-
-func (e *ESME) handleNonBindedOperations(receivedPdu PDU) (formated_error error) {
-	ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
-	ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
-	_, formated_error = e.send(&ResponsePdu)
-	return formated_error
-}
-
-func (e *ESME) HandleDeliverSmPduReceived(receivedPdu PDU) (formated_error error) {
-	ResponsePdu := receivedPdu.
-		WithCommandId(receivedPdu.header.commandId + "_resp").
-		WithSMPPError(ESME_RINVBNDSTS).
-		WithMessageId("")
-	_, formated_error = e.send(&ResponsePdu)
 	return formated_error
 }
 

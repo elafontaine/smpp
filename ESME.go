@@ -57,7 +57,7 @@ func NewEsme(clientSocket *net.Conn) (e *ESME) {
 func registerStandardBehaviours(e *ESME) {
 	e.commandFunctions["enquire_link"] = handleEnquiryLinkPduReceived
 	e.commandFunctions["submit_sm"] = handleSubmitSmPduReceived
-
+	e.commandFunctions["deliver_sm"] = HandleDeliverSmPduReceived
 }
 
 func (e *ESME) Close() {

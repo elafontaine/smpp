@@ -45,3 +45,21 @@ func (s *SMSC) handleBindOperation(e *ESME, receivedPdu PDU) error {
 	}
 	return nil
 }
+
+func HandleDeliverSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error) {
+	ResponsePdu := receivedPdu.
+		WithCommandId(receivedPdu.header.commandId + "_resp").
+		WithSMPPError(ESME_RINVBNDSTS).
+		WithMessageId("")
+	_, formated_error = e.send(&ResponsePdu)
+	return formated_error
+}
+
+func handleNonBindedOperations(e *ESME, receivedPdu PDU) (formated_error error) {
+	ResponsePdu := receivedPdu.
+		WithCommandId(receivedPdu.header.commandId + "_resp").
+		WithMessageId("").
+		WithSMPPError(ESME_RINVBNDSTS)
+	_, formated_error = e.send(&ResponsePdu)
+	return formated_error
+}
