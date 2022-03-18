@@ -15,13 +15,13 @@ func NewGenerickNack() PDU {
 	return PDU{header: header}
 }
 
-func NewEnquiryLink() PDU {
+func NewEnquireLink() PDU {
 	header := defaultHeader()
 	header.commandId = "enquire_link"
 	return PDU{header: header}
 }
 
-func NewEnquiryLinkResp() PDU {
+func NewEnquireLinkResp() PDU {
 	header := defaultHeader()
 	header.commandId = "enquire_link_resp"
 	body := Body{

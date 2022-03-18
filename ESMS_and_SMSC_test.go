@@ -136,8 +136,8 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 		},
 		{
 			"Send enquiry_link when bind as transmitter should return response",
-			args{NewEnquiryLink(), BOUND_TX},
-			NewEnquiryLinkResp(),
+			args{NewEnquireLink(), BOUND_TX},
+			NewEnquireLinkResp(),
 		},
 		{
 			"Send deliver_sm when bind as transmitter should return response",

@@ -245,7 +245,7 @@ func TestEnquiryLink(t *testing.T) {
 	expectedEnquiryLink.header.commandLength = 0
 	expectedEnquiryLink.header.sequenceNumber = 0
 
-	actualEnquiryLink := NewEnquiryLink()
+	actualEnquiryLink := NewEnquireLink()
 	t.Run("Constructor Pattern for EnquiryLink ", func(t *testing.T) {
 		comparePdu(actualEnquiryLink, expectedEnquiryLink, t)
 	})
@@ -266,7 +266,7 @@ func TestEnquiryLinkResp(t *testing.T) {
 	expectedEnquiryLink.header.commandLength = 0
 	expectedEnquiryLink.header.sequenceNumber = 0
 
-	actualEnquiryLink := NewEnquiryLinkResp()
+	actualEnquiryLink := NewEnquireLinkResp()
 	t.Run("Constructor Pattern for EnquiryLink ", func(t *testing.T) {
 		comparePdu(actualEnquiryLink, expectedEnquiryLink, t)
 	})

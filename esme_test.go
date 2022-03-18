@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 	"time"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
@@ -35,6 +36,32 @@ func TestClosingEsmeCloseSocketAndDoesntBlock(t *testing.T) {
 	Esme.Close()
 	time.Sleep(1)
 	Esme.Close()
+}
+
+func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	defer CloseAndAssertClean(smsc, Esme, t)
+
+	all_seq_numbers := make(chan int)
+	seq_numbers_expected := []int{}
+	seq_numbers_actual := []int{}
+	iterations := 10
+	for i:= 0; i<= iterations; i++ {
+		go func(){
+			enquireLink1 := NewEnquireLink()
+			actual_seq_num, err1 := Esme.send(&enquireLink1)
+			if err1 != nil {
+				t.Error("Issue sending enquire_link")
+			}
+			all_seq_numbers <- actual_seq_num
+		}()
+	}
+	for i:= 0; i<= iterations; i++ {
+		seq_numbers_expected = append(seq_numbers_expected, i+1)
+		seq_numbers_actual = append(seq_numbers_actual, <-all_seq_numbers)
+	}
+		
+	assert.ElementsMatch(t,seq_numbers_actual, seq_numbers_expected)
 }
 
 func AssertReceivedPduIsSameAsExpected(smsc_connection net.Conn, t *testing.T, expectedPDU PDU) {

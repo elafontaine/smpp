@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -21,7 +22,7 @@ var (
 type ESME struct {
 	clientSocket     net.Conn
 	state            *State
-	sequenceNumber   int
+	sequenceNumber   int32
 	closeChan        chan bool
 	commandFunctions map[string]func(*ESME, PDU) error
 }
@@ -100,8 +101,7 @@ func (e *ESME) bindReceiver(systemID, password string) error {
 func (e *ESME) send(pdu *PDU) (seq_num int, err error) {
 	seq_num = pdu.header.sequenceNumber
 	if pdu.header.sequenceNumber == 0 {
-		e.sequenceNumber++
-		seq_num = e.sequenceNumber
+		seq_num = int(atomic.AddInt32(&(e.sequenceNumber),1))
 	}
 	send_pdu := pdu.WithSequenceNumber(seq_num)
 	expectedBytes, err := EncodePdu(send_pdu)

@@ -3,7 +3,7 @@ package smpp
 import "fmt"
 
 func handleEnquiryLinkPduReceived(e *ESME, receivedPdu PDU) (formated_error error) {
-	ResponsePdu := NewEnquiryLinkResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
+	ResponsePdu := NewEnquireLinkResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
 	_, formated_error = e.send(&ResponsePdu)
 	return formated_error
 }
