@@ -16,7 +16,7 @@ type SMSC struct {
 	ESMEs           atomic.Value
 	State           State
 	NewConnChan     chan net.Conn
-	NewEsmeChan     chan ESME
+	NewEsmeChan     chan *ESME
 	RemoveEsmeChan  chan *ESME
 	RemoveDoneChan  chan bool
 	SystemId		string
@@ -29,7 +29,7 @@ func NewSMSC(listeningSocket *net.Listener, SystemId string, Password string) (s
 		State:           *NewESMEState(LISTENING),
 		ESMEs:           atomic.Value{},
 		NewConnChan:     make(chan net.Conn),
-		NewEsmeChan:     make(chan ESME),
+		NewEsmeChan:     make(chan *ESME),
 		RemoveEsmeChan:  make(chan *ESME),
 		RemoveDoneChan:  make(chan bool),
 		SystemId:		 SystemId,
@@ -47,7 +47,7 @@ func (smsc *SMSC) AcceptNewConnectionFromSMSC() (*ESME, error) {
 	}
 	smsc.NewConnChan <- serverConnectionSocket
 	e := <-smsc.NewEsmeChan
-	return &e, nil
+	return e, nil
 }
 
 func (s *SMSC) smscControlLoop() {
@@ -70,7 +70,7 @@ func (smsc *SMSC) createAndAppendNewEsme(serverConnectionSocket net.Conn) {
 	e.commandFunctions["bind_transceiver"] = smsc.handleBindOperation
 	e.commandFunctions["bind_transmitter"] = smsc.handleBindOperation
 	appendNewEsmeToSMSC(smsc, e)
-	smsc.NewEsmeChan <- *e
+	smsc.NewEsmeChan <- e
 }
 
 func appendNewEsmeToSMSC(smsc *SMSC, e *ESME) {

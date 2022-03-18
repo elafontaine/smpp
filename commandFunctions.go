@@ -10,7 +10,7 @@ func handleEnquiryLinkPduReceived(e *ESME, receivedPdu PDU) (formated_error erro
 
 func handleSubmitSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error) {
 	if e.isTransmitterState() {
-		formated_error = replyToSubmitSM(*e, receivedPdu)
+		formated_error = replyToSubmitSM(e, receivedPdu)
 	} else {
 		ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
 		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
@@ -19,7 +19,7 @@ func handleSubmitSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error) 
 	return formated_error
 }
 
-func replyToSubmitSM(e ESME, receivedPdu PDU) (err error) {
+func replyToSubmitSM(e *ESME, receivedPdu PDU) (err error) {
 	submit_sm_resp_bytes := NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(1)
 	_, err = e.send(&submit_sm_resp_bytes)
 	return err

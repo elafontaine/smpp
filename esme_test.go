@@ -28,6 +28,15 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	AssertReceivedPduIsSameAsExpected(smsc_connection, t, secondPdu)
 }
 
+func TestClosingEsmeCloseSocketAndDoesntBlock(t *testing.T) {
+	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	defer CloseAndAssertClean(smsc, Esme, t)
+
+	Esme.Close()
+	time.Sleep(1)
+	Esme.Close()
+}
+
 func AssertReceivedPduIsSameAsExpected(smsc_connection net.Conn, t *testing.T, expectedPDU PDU) {
 	ActualPdu, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
 	if LastError != nil {

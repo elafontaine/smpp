@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	DebugSmppLogger   *log.Logger
 	WarningSmppLogger *log.Logger
 	InfoSmppLogger    *log.Logger
 	ErrorSmppLogger   *log.Logger
@@ -49,7 +50,6 @@ func NewEsme(clientSocket *net.Conn) (e *ESME) {
 		make(chan bool),
 		map[string]func(*ESME, PDU) error{},
 	}
-	go e._close()
 	registerStandardBehaviours(e)
 	return e
 }
@@ -61,21 +61,8 @@ func registerStandardBehaviours(e *ESME) {
 }
 
 func (e *ESME) Close() {
-	for e.getEsmeState() != CLOSED {
-		select {
-		case e.closeChan <- true:
-			continue
-		default:
-			time.Sleep(0)
-		}
-	}
-}
-
-func (e *ESME) _close() {
-	<-e.closeChan
 	e.clientSocket.Close()
-	e.state.setState <- CLOSED
-	e.state.done <- true
+	e.state.Close()
 }
 
 func (e *ESME) getEsmeState() string {
