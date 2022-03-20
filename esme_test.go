@@ -18,7 +18,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	}
 	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
 	secondPdu := NewSubmitSM().WithSequenceNumber(2)
-	sequence_number, LastError := Esme.send(&secondPdu)
+	sequence_number, LastError := Esme.Send(&secondPdu)
 	if sequence_number != 2 {
 		t.Errorf("Sending sequence number isn't as expected !")
 	}
@@ -48,7 +48,7 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	for i:= 0; i<= iterations; i++ {
 		go func(){
 			enquireLink1 := NewEnquireLink()
-			actual_seq_num, err1 := Esme.send(&enquireLink1)
+			actual_seq_num, err1 := Esme.Send(&enquireLink1)
 			if err1 != nil {
 				t.Error("Issue sending enquire_link")
 			}

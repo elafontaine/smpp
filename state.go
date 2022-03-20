@@ -45,7 +45,7 @@ stateDispatcherLoop:
 	}
 }
 
-func (state *State) getState() string {
+func (state *State) GetState() string {
 	if state.controlLoopStillAlive() {
 		select {
 		case state.askForState <- true:

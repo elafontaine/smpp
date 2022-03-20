@@ -59,7 +59,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			if state := Esme.getEsmeState(); state != tt.wantBoundAs {
 				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, LastError)
 			}
-			if Esme.state.getState() != smsc.ESMEs.Load().([]*ESME)[0].state.getState() {
+			if Esme.state.GetState() != smsc.ESMEs.Load().([]*ESME)[0].state.GetState() {
 				t.Errorf("The state isn't the same on the SMSC connection and ESME")
 			}
 		})
@@ -91,7 +91,7 @@ func TestReactionFromSmscOnFirstPDUForDefaultBehaviour(t *testing.T) {
 			smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
-			_, LastError := Esme.send(tt.args.bind_pdu)
+			_, LastError := Esme.Send(tt.args.bind_pdu)
 
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
@@ -153,7 +153,7 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 			Esme.state.setState <- tt.args.bind_state
 			smsc.ESMEs.Load().([]*ESME)[0].state.setState <- tt.args.bind_state
 			smsc.ensureCleanUpOfEsmes(smsc.ESMEs.Load().([]*ESME)[0])
-			sequence_number, LastError := Esme.send(&tt.args.send_pdu)
+			sequence_number, LastError := Esme.Send(&tt.args.send_pdu)
 			if LastError != nil {
 				t.Errorf("Failed to send pdu : %v", LastError)
 			}
@@ -198,7 +198,7 @@ func StartSmscSimulatorServer() (smsc *SMSC, err error) {
 
 func StartSmscSimulatorServerAndAccept() (smsc *SMSC, err error) {
 	smsc, err = StartSmscSimulatorServer()
-	smsc.start()
+	smsc.Start()
 	return smsc, err
 }
 

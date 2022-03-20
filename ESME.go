@@ -58,7 +58,7 @@ func NewEsme(clientSocket *net.Conn) (e *ESME) {
 func registerStandardBehaviours(e *ESME) {
 	e.commandFunctions["enquire_link"] = handleEnquiryLinkPduReceived
 	e.commandFunctions["submit_sm"] = handleSubmitSmPduReceived
-	e.commandFunctions["deliver_sm"] = HandleDeliverSmPduReceived
+	e.commandFunctions["deliver_sm"] = handleDeliverSmPduReceived
 }
 
 func (e *ESME) Close() {
@@ -67,18 +67,18 @@ func (e *ESME) Close() {
 }
 
 func (e *ESME) getEsmeState() string {
-	return e.state.getState()
+	return e.state.GetState()
 }
 
 func (e *ESME) bindTransmitter(systemID, password string) error {
 	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
-	_, err := e.send(&pdu)
+	_, err := e.Send(&pdu)
 	return err
 }
 
-func (e *ESME) bindTransmitter2(systemID, password string) (resp *PDU, err error) {
+func (e *ESME) BindTransmitter2(systemID, password string) (resp *PDU, err error) {
 	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
-	_, err = e.send(&pdu)
+	_, err = e.Send(&pdu)
 	if err != nil {
 		return nil, err
 	}
@@ -88,17 +88,17 @@ func (e *ESME) bindTransmitter2(systemID, password string) (resp *PDU, err error
 
 func (e *ESME) bindTransceiver(systemID, password string) error {
 	pdu := NewBindTransceiver().WithSystemId(systemID).WithPassword(password)
-	_, err := e.send(&pdu)
+	_, err := e.Send(&pdu)
 	return err
 }
 
 func (e *ESME) bindReceiver(systemID, password string) error {
 	pdu := NewBindReceiver().WithSystemId(systemID).WithPassword(password)
-	_, err := e.send(&pdu)
+	_, err := e.Send(&pdu)
 	return err
 }
 
-func (e *ESME) send(pdu *PDU) (seq_num int, err error) {
+func (e *ESME) Send(pdu *PDU) (seq_num int, err error) {
 	seq_num = pdu.header.sequenceNumber
 	if pdu.header.sequenceNumber == 0 {
 		seq_num = int(atomic.AddInt32(&(e.sequenceNumber),1))
@@ -118,11 +118,11 @@ func waitForBindResponse(e *ESME) (pdu *PDU, err error) {
 		return nil, err
 	}
 	pdu = &receivedPdu
-	err = SetESMEStateFromSMSCResponse(pdu, e)
+	err = setESMEStateFromSMSCResponse(pdu, e)
 	return pdu, err
 }
 
-func SetESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
+func setESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
 	if pdu.header.commandStatus == ESME_ROK {
 		switch pdu.header.commandId {
 		case "bind_receiver_resp":

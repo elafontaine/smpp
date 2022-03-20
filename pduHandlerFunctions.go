@@ -4,7 +4,7 @@ import "fmt"
 
 func handleEnquiryLinkPduReceived(e *ESME, receivedPdu PDU) (formated_error error) {
 	ResponsePdu := NewEnquireLinkResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
-	_, formated_error = e.send(&ResponsePdu)
+	_, formated_error = e.Send(&ResponsePdu)
 	return formated_error
 }
 
@@ -14,14 +14,14 @@ func handleSubmitSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error) 
 	} else {
 		ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
 		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
-		_, formated_error = e.send(&ResponsePdu)
+		_, formated_error = e.Send(&ResponsePdu)
 	}
 	return formated_error
 }
 
 func replyToSubmitSM(e *ESME, receivedPdu PDU) (err error) {
 	submit_sm_resp_bytes := NewSubmitSMResp().WithMessageId("1").WithSequenceNumber(1)
-	_, err = e.send(&submit_sm_resp_bytes)
+	_, err = e.Send(&submit_sm_resp_bytes)
 	return err
 }
 
@@ -35,7 +35,7 @@ func (s *SMSC) handleBindOperation(e *ESME, receivedPdu PDU) error {
 	if err != nil {
 		return fmt.Errorf("Encoding bind response failed : %v", err)
 	}
-	err = SetESMEStateFromSMSCResponse(&ResponsePdu, e)
+	err = setESMEStateFromSMSCResponse(&ResponsePdu, e)
 	if err != nil {
 		InfoSmppLogger.Printf("Couldn't set the bind state on request!")
 	}
@@ -46,12 +46,12 @@ func (s *SMSC) handleBindOperation(e *ESME, receivedPdu PDU) error {
 	return nil
 }
 
-func HandleDeliverSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error) {
+func handleDeliverSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error) {
 	ResponsePdu := receivedPdu.
 		WithCommandId(receivedPdu.header.commandId + "_resp").
 		WithSMPPError(ESME_RINVBNDSTS).
 		WithMessageId("")
-	_, formated_error = e.send(&ResponsePdu)
+	_, formated_error = e.Send(&ResponsePdu)
 	return formated_error
 }
 
@@ -60,6 +60,6 @@ func handleNonBindedOperations(e *ESME, receivedPdu PDU) (formated_error error) 
 		WithCommandId(receivedPdu.header.commandId + "_resp").
 		WithMessageId("").
 		WithSMPPError(ESME_RINVBNDSTS)
-	_, formated_error = e.send(&ResponsePdu)
+	_, formated_error = e.Send(&ResponsePdu)
 	return formated_error
 }

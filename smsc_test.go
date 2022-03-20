@@ -43,7 +43,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	defer Esme2.Close()
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 2)
 	smsc.ensureCleanUpOfEsmes((smsc.ESMEs.Load().([]*ESME)[1]))
-	resp_pdu, err2 := Esme2.bindTransmitter2("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
+	resp_pdu, err2 := Esme2.BindTransmitter2("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %v", err2)
 	}

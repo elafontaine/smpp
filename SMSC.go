@@ -40,7 +40,7 @@ func NewSMSC(listeningSocket *net.Listener, SystemId string, Password string) (s
 	return s
 }
 
-func (smsc *SMSC) AcceptNewConnectionFromSMSC() (*ESME, error) {
+func (smsc *SMSC) acceptNewConnectionFromSMSC() (*ESME, error) {
 	serverConnectionSocket, err := smsc.listeningSocket.Accept()
 	if err != nil {
 		return nil, err
@@ -51,13 +51,12 @@ func (smsc *SMSC) AcceptNewConnectionFromSMSC() (*ESME, error) {
 }
 
 func (s *SMSC) smscControlLoop() {
-	for s.State.getState() != CLOSED {
+	for s.State.GetState() != CLOSED {
 		select {
 		case serverConnectionSocket := <-s.NewConnChan:
 			s.createAndAppendNewEsme(serverConnectionSocket)
 		case e := <-s.RemoveEsmeChan:
 			s._closeAndRemoveEsme(e)
-			s.RemoveDoneChan <- true
 		default:
 			time.Sleep(0)
 		}
@@ -94,15 +93,15 @@ func (s *SMSC) _closeAndRemoveEsme(e *ESME) {
 		}
 	}
 	s.ESMEs.Store(new_connections)
-
+	s.RemoveDoneChan <- true
 }
 
 func (s *SMSC) GetNumberOfConnection() int {
 	return len(s.ESMEs.Load().([]*ESME))
 }
 
-func (s *SMSC) start() {
-	go s.AcceptAllNewConnection()
+func (s *SMSC) Start() {
+	go s.acceptAllNewConnection()
 }
 
 func (s *SMSC) Close() {
@@ -113,7 +112,7 @@ func (s *SMSC) Close() {
 		}
 	}
 	s.listeningSocket.Close()
-	if s.State.getState() != CLOSED {
+	if s.State.GetState() != CLOSED {
 		s.State.setState <- CLOSED
 		s.State.done <- true
 	}
@@ -131,9 +130,9 @@ func (s *SMSC) getEsmeFromChannel() <-chan *ESME {
 	return newChannel
 }
 
-func (s *SMSC) AcceptAllNewConnection() {
-	for s.State.getState() != CLOSED {
-		_, err := s.AcceptNewConnectionFromSMSC()
+func (s *SMSC) acceptAllNewConnection() {
+	for s.State.GetState() != CLOSED {
+		_, err := s.acceptNewConnectionFromSMSC()
 		if err != nil {
 			InfoSmppLogger.Printf("SMSC wasn't able to accept a new connection: %v", err)
 			if errors.Is(err, net.ErrClosed) {
