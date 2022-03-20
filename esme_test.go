@@ -34,7 +34,6 @@ func TestClosingEsmeCloseSocketAndDoesntBlock(t *testing.T) {
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	Esme.Close()
-	time.Sleep(1)
 	Esme.Close()
 }
 

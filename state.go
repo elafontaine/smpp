@@ -1,6 +1,7 @@
 package smpp
 
 import (
+	"sync"
 	"time"
 )
 
@@ -11,6 +12,7 @@ type State struct {
 	reportState chan string
 	done        chan bool
 	alive       chan bool
+	mu          sync.Mutex
 }
 
 func NewESMEState(state string) *State {
@@ -55,7 +57,7 @@ func (state *State) getState() string {
 }
 
 func (state *State) controlLoopStillAlive() bool {
-	x, ok := <- state.alive
+	x, ok := <-state.alive
 	if !ok {
 		return false
 	}
@@ -63,7 +65,9 @@ func (state *State) controlLoopStillAlive() bool {
 }
 
 func (state *State) Close() {
+	state.mu.Lock()
 	if state.controlLoopStillAlive() {
 		state.done <- true
 	}
+	state.mu.Unlock()
 }
