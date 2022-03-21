@@ -40,17 +40,13 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+			smsc, _, Esme := connectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			LastError := tt.args.bind_pdu(Esme, validSystemID, validPassword)
 
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
-			}
-			LastError = handleOperations(smsc.ESMEs.Load().([]*ESME)[0])
-			if LastError != nil {
-				t.Errorf("Error handling the binding operation on SMSC : %v", LastError)
 			}
 			_, LastError = waitForBindResponse(Esme)
 			if LastError != nil {
@@ -88,17 +84,13 @@ func TestReactionFromSmscOnFirstPDUForDefaultBehaviour(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+			smsc, _, Esme := connectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			_, LastError := Esme.Send(tt.args.bind_pdu)
 
 			if LastError != nil {
 				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
-			}
-			err := handleOperations(smsc.ESMEs.Load().([]*ESME)[0])
-			if err != nil {
-				t.Logf("Error handling the binding operation on SMSC : %v", err)
 			}
 			pduResp, err := waitForBindResponse(Esme)
 			if err != nil {
@@ -147,12 +139,11 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v", tt.name), func(t *testing.T) {
-			smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+			smsc, _, Esme := connectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			Esme.state.setState <- tt.args.bind_state
 			smsc.ESMEs.Load().([]*ESME)[0].state.setState <- tt.args.bind_state
-			smsc.ensureCleanUpOfEsmes(smsc.ESMEs.Load().([]*ESME)[0])
 			sequence_number, LastError := Esme.Send(&tt.args.send_pdu)
 			if LastError != nil {
 				t.Errorf("Failed to send pdu : %v", LastError)
@@ -190,26 +181,20 @@ func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_ri
 	}
 }
 
-func StartSmscSimulatorServer() (smsc *SMSC, err error) {
+func GetSmscSimulatorServer() (smsc *SMSC, err error) {
 	serverSocket, err := net.Listen(connType, connhost+":"+connport)
 	smsc = NewSMSC(&serverSocket, validSystemID, validPassword)
 	return smsc, err
 }
 
 func StartSmscSimulatorServerAndAccept() (smsc *SMSC, err error) {
-	smsc, err = StartSmscSimulatorServer()
+	smsc, err = GetSmscSimulatorServer()
 	smsc.Start()
 	return smsc, err
 }
 
-func (s *SMSC) ensureCleanUpOfEsmes(e *ESME) {
-	go func() {
-		defer s.closeAndRemoveEsme(e)
-		handleConnection(e)
-	}()
-}
 
-func ConnectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME) {
+func connectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME) {
 	smsc, err := StartSmscSimulatorServerAndAccept()
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
@@ -229,28 +214,4 @@ func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
 	}
 }
 
-func handleConnection(e *ESME) {
-	for e.getEsmeState() != CLOSED {
-		err := handleOperations(e)
-		if err != nil {
-			InfoSmppLogger.Printf("Issue on Connection: %v\n", err)
-		}
-		time.Sleep(0)
-	}
-}
-
-func handleOperations(e *ESME) (formated_error error) {
-	receivedPdu, formated_error := e.receivePdu()
-	if formated_error != nil {
-		return formated_error
-	}
-	ABindOperation := IsBindOperation(receivedPdu)
-	if e.getEsmeState() == OPEN && !ABindOperation {
-		formated_error = handleNonBindedOperations(e,receivedPdu)
-	}
-	if _, ok := e.commandFunctions[receivedPdu.header.commandId]; ok {
-		formated_error = e.commandFunctions[receivedPdu.header.commandId](e, receivedPdu)
-	}
-	return formated_error
-}
 

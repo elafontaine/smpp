@@ -2,12 +2,10 @@ package smpp
 
 import (
 	"sync"
-	"time"
 )
 
 type State struct {
 	state       string
-	askForState chan bool
 	setState    chan string
 	reportState chan string
 	done        chan bool
@@ -18,7 +16,6 @@ type State struct {
 func NewESMEState(state string) *State {
 	obj := State{
 		state:       state,
-		askForState: make(chan bool),
 		reportState: make(chan string),
 		setState:    make(chan string),
 		done:        make(chan bool),
@@ -32,27 +29,24 @@ func (state *State) stateDispatcher() {
 stateDispatcherLoop:
 	for {
 		select {
-		case <-state.askForState:
-			state.reportState <- state.state
 		case msg2 := <-state.setState:
 			state.state = msg2
+		case state.reportState <- state.state:
 		case state.alive <- true:
 			continue
 		case <-state.done:
 			close(state.alive)
+			close(state.reportState)
 			break stateDispatcherLoop
 		}
 	}
 }
 
 func (state *State) GetState() string {
-	if state.controlLoopStillAlive() {
-		select {
-		case state.askForState <- true:
-			return <-state.reportState
-		case <-time.After(time.Second): // if the channel gets closed, we want to return a state either way
-		}
-	}
+	_, ok := <-state.reportState //clear previous one and check if channel is close
+	if (ok) {
+		return <-state.reportState
+	} 			
 	return CLOSED
 }
 

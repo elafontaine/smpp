@@ -19,8 +19,8 @@ type SMSC struct {
 	NewEsmeChan     chan *ESME
 	RemoveEsmeChan  chan *ESME
 	RemoveDoneChan  chan bool
-	SystemId		string
-	Password		string
+	SystemId        string
+	Password        string
 }
 
 func NewSMSC(listeningSocket *net.Listener, SystemId string, Password string) (s *SMSC) {
@@ -32,7 +32,7 @@ func NewSMSC(listeningSocket *net.Listener, SystemId string, Password string) (s
 		NewEsmeChan:     make(chan *ESME),
 		RemoveEsmeChan:  make(chan *ESME),
 		RemoveDoneChan:  make(chan bool),
-		SystemId:		 SystemId,
+		SystemId:        SystemId,
 		Password:        Password,
 	}
 	s.ESMEs.Store([]*ESME{})
@@ -132,7 +132,7 @@ func (s *SMSC) getEsmeFromChannel() <-chan *ESME {
 
 func (s *SMSC) acceptAllNewConnection() {
 	for s.State.GetState() != CLOSED {
-		_, err := s.acceptNewConnectionFromSMSC()
+		e, err := s.acceptNewConnectionFromSMSC()
 		if err != nil {
 			InfoSmppLogger.Printf("SMSC wasn't able to accept a new connection: %v", err)
 			if errors.Is(err, net.ErrClosed) {
@@ -140,5 +140,38 @@ func (s *SMSC) acceptAllNewConnection() {
 			}
 			continue
 		}
+		go s.ensureCleanUpOfEsmes(e)
 	}
+}
+
+func handleConnection(e *ESME) {
+	for e.getEsmeState() != CLOSED {
+		err := handleOperations(e)
+		if err != nil {
+			InfoSmppLogger.Printf("Issue on Connection: %v\n", err)
+		}
+		time.Sleep(0)
+	}
+}
+
+func handleOperations(e *ESME) (formated_error error) {
+	receivedPdu, formated_error := e.receivePdu()
+	if formated_error != nil {
+		return formated_error
+	}
+	ABindOperation := IsBindOperation(receivedPdu)
+	if e.getEsmeState() == OPEN && !ABindOperation {
+		formated_error = handleNonBindedOperations(e, receivedPdu)
+	}
+	if _, ok := e.commandFunctions[receivedPdu.header.commandId]; ok {
+		formated_error = e.commandFunctions[receivedPdu.header.commandId](e, receivedPdu)
+	}
+	return formated_error
+}
+
+func (s *SMSC) ensureCleanUpOfEsmes(e *ESME) {
+	go func() {
+		defer s.closeAndRemoveEsme(e)
+		handleConnection(e)
+	}()
 }

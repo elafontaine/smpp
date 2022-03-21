@@ -9,28 +9,36 @@ import (
 )
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
-	smsc, smsc_connection, Esme := ConnectEsmeAndSmscTogether(t)
-	defer CloseAndAssertClean(smsc, Esme, t)
-
-	LastError := Esme.bindTransmitter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
-	if LastError != nil {
-		t.Errorf("Couldn't write to the socket PDU: %v", LastError)
+	smsc, err := GetSmscSimulatorServer()
+	if err != nil {
+		t.Errorf("couldn't start server successfully: %v", err)
 	}
+	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
+	if err != nil {
+		t.Errorf("couldn't connect client to server successfully: %v", err)
+	}
+	smsc.acceptNewConnectionFromSMSC()
+	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0].clientSocket
+
+	
+	defer CloseAndAssertClean(smsc, Esme, t)
+	
 	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
 	secondPdu := NewSubmitSM().WithSequenceNumber(2)
-	sequence_number, LastError := Esme.Send(&secondPdu)
-	if sequence_number != 2 {
+	sequence_number1, LastError1 := Esme.Send(&firstPdu)
+	sequence_number2, LastError2 := Esme.Send(&secondPdu)
+	if sequence_number1 != 1 || sequence_number2 != 2 {
 		t.Errorf("Sending sequence number isn't as expected !")
 	}
-	if LastError != nil {
-		t.Errorf("Error writing : %v", LastError)
+	if LastError1 != nil || LastError2 != nil {
+		t.Errorf("Error writing : %v", LastError2)
 	}
-	AssertReceivedPduIsSameAsExpected(smsc_connection, t, firstPdu)
-	AssertReceivedPduIsSameAsExpected(smsc_connection, t, secondPdu)
+	assertReceivedPduIsSameAsExpected(smsc_connection, t, firstPdu)
+	assertReceivedPduIsSameAsExpected(smsc_connection, t, secondPdu)
 }
 
 func TestClosingEsmeCloseSocketAndDoesntBlock(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme := connectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	Esme.Close()
@@ -38,13 +46,13 @@ func TestClosingEsmeCloseSocketAndDoesntBlock(t *testing.T) {
 }
 
 func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
-	smsc, _, Esme := ConnectEsmeAndSmscTogether(t)
+	smsc, _, Esme := connectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	all_seq_numbers := make(chan int)
 	seq_numbers_expected := []int{}
 	seq_numbers_actual := []int{}
-	iterations := 10
+	iterations := 100
 	for i:= 0; i<= iterations; i++ {
 		go func(){
 			enquireLink1 := NewEnquireLink()
@@ -63,7 +71,7 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	assert.ElementsMatch(t,seq_numbers_actual, seq_numbers_expected)
 }
 
-func AssertReceivedPduIsSameAsExpected(smsc_connection net.Conn, t *testing.T, expectedPDU PDU) {
+func assertReceivedPduIsSameAsExpected(smsc_connection net.Conn, t *testing.T, expectedPDU PDU) {
 	ActualPdu, LastError := readPduBytesFromConnection(smsc_connection, time.Now().Add(1*time.Second))
 	if LastError != nil {
 		t.Errorf("We didn't read the PDU we sent correctly : %v", LastError)
