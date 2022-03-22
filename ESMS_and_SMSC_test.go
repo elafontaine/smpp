@@ -27,7 +27,7 @@ func init() {
 
 func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	type args struct {
-		bind_pdu func(e *ESME, sys, pass string) error
+		bind_pdu func(e *ESME, sys, pass string) (*PDU, error)
 	}
 	tests := []struct {
 		name        string
@@ -35,7 +35,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 		wantBoundAs string
 	}{
 		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).bindReceiver}, BOUND_RX},
-		{"TestEsmeCanBindWithSmscAsATransmitter", args{(*ESME).bindTransmitter}, BOUND_TX},
+		{"TestEsmeCanBindWithSmscAsATransmitter", args{(*ESME).BindTransmitter}, BOUND_TX},
 		{"TestEsmeCanBindWithSmscAsATransceiver", args{(*ESME).bindTransceiver}, BOUND_TRX},
 	}
 	for _, tt := range tests {
@@ -43,14 +43,12 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			smsc, _, Esme := connectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
-			LastError := tt.args.bind_pdu(Esme, validSystemID, validPassword)
-
+			resp_pdu, LastError := tt.args.bind_pdu(Esme, validSystemID, validPassword)
 			if LastError != nil {
-				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
+				t.Errorf("Error sending to or handling the answer from SMSC : %v", LastError)
 			}
-			_, LastError = waitForBindResponse(Esme)
-			if LastError != nil {
-				t.Errorf("Error handling the answer from SMSC : %v", LastError)
+			if resp_pdu.header.commandStatus != ESME_ROK {
+				t.Errorf("Answer wasn't successful ! %v", resp_pdu)
 			}
 			if state := Esme.GetEsmeState(); state != tt.wantBoundAs {
 				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, LastError)

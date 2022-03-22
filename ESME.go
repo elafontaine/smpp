@@ -72,32 +72,19 @@ func (e *ESME) GetEsmeState() string {
 	return e.state.GetState()
 }
 
-func (e *ESME) bindTransmitter(systemID, password string) error {
+func (e *ESME) BindTransmitter(systemID, password string) (resp *PDU, err error) {
 	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
-	_, err := e.Send(&pdu)
-	return err
+	return e.bindWithSmsc(pdu)
 }
 
-func (e *ESME) BindTransmitter2(systemID, password string) (resp *PDU, err error) {
-	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
-	_, err = e.Send(&pdu)
-	if err != nil {
-		return nil, err
-	}
-	resp, err = waitForBindResponse(e)
-	return resp, err
-}
-
-func (e *ESME) bindTransceiver(systemID, password string) error {
+func (e *ESME) bindTransceiver(systemID, password string) (resp *PDU, err error) {
 	pdu := NewBindTransceiver().WithSystemId(systemID).WithPassword(password)
-	_, err := e.Send(&pdu)
-	return err
+	return e.bindWithSmsc(pdu)
 }
 
-func (e *ESME) bindReceiver(systemID, password string) error {
+func (e *ESME) bindReceiver(systemID, password string) (resp *PDU, err error) {
 	pdu := NewBindReceiver().WithSystemId(systemID).WithPassword(password)
-	_, err := e.Send(&pdu)
-	return err
+	return e.bindWithSmsc(pdu)
 }
 
 func (e *ESME) Send(pdu *PDU) (seq_num int, err error) {
@@ -112,6 +99,15 @@ func (e *ESME) Send(pdu *PDU) (seq_num int, err error) {
 	}
 	_, err = e.clientSocket.Write(expectedBytes)
 	return seq_num, err
+}
+
+func (e *ESME) bindWithSmsc(pdu PDU) (*PDU, error) {
+	_, err := e.Send(&pdu)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := waitForBindResponse(e)
+	return resp, err
 }
 
 func waitForBindResponse(e *ESME) (pdu *PDU, err error) {
