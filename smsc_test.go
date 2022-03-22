@@ -22,11 +22,11 @@ func TestClosingOneConnectionCloseOnSMSCSide(t *testing.T) {
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
 	Esme.Close()
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 0)
-	for smsc_connection.getEsmeState() != CLOSED {
+	for smsc_connection.GetEsmeState() != CLOSED {
 		time.Sleep(200 * time.Millisecond)
 	}
 	closeResult := smsc_connection.clientSocket.Close()
-	if smsc_connection.getEsmeState() != CLOSED || !errors.Is(closeResult, net.ErrClosed) {
+	if smsc_connection.GetEsmeState() != CLOSED || !errors.Is(closeResult, net.ErrClosed) {
 		t.Errorf("Connection didn't close cleanly!")
 	}
 }
@@ -63,7 +63,7 @@ func AssertSmscIsClosedAndClean(smsc *SMSC, t *testing.T) {
 
 func assertAllRemainingConnectionsAreClosed(smsc *SMSC, t *testing.T) {
 	for _, conn := range smsc.ESMEs.Load().([]*ESME) {
-		if conn.getEsmeState() != CLOSED {
+		if conn.GetEsmeState() != CLOSED {
 			t.Error("At least one connection wasn't closed!")
 		}
 	}

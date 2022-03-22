@@ -19,6 +19,8 @@ var (
 	ErrorSmppLogger   *log.Logger
 )
 
+// ESME is the client side of the SMPP protocol.  Users should be
+// managing their ESMEs to connect to an SMPP server (SMSC).
 type ESME struct {
 	clientSocket     net.Conn
 	state            *State
@@ -66,7 +68,7 @@ func (e *ESME) Close() {
 	e.state.Close()
 }
 
-func (e *ESME) getEsmeState() string {
+func (e *ESME) GetEsmeState() string {
 	return e.state.GetState()
 }
 
@@ -173,11 +175,11 @@ func readPduBytesFromConnection(ConnectionSocket net.Conn, timeout time.Time) ([
 }
 
 func (e *ESME) isTransmitterState() bool {
-	currentState := e.getEsmeState()
+	currentState := e.GetEsmeState()
 	return (currentState == BOUND_TX || currentState == BOUND_TRX)
 }
 
 func (e *ESME) isReceiverState() bool {
-	currentState := e.getEsmeState()
+	currentState := e.GetEsmeState()
 	return (currentState == BOUND_RX || currentState == BOUND_TRX)
 }

@@ -6,7 +6,7 @@ type PDU struct {
 	body   Body
 }
 
-// Decoding Function (only ParsePdu should be public)
+// Decoding Function, only ParsePdu should be public
 func ParsePdu(bytes []byte) (pdu PDU, err error) {
 	header, err3 := parseHeader(bytes)
 	if err3 != nil {

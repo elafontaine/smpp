@@ -52,7 +52,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			if LastError != nil {
 				t.Errorf("Error handling the answer from SMSC : %v", LastError)
 			}
-			if state := Esme.getEsmeState(); state != tt.wantBoundAs {
+			if state := Esme.GetEsmeState(); state != tt.wantBoundAs {
 				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, LastError)
 			}
 			if Esme.state.GetState() != smsc.ESMEs.Load().([]*ESME)[0].state.GetState() {

@@ -11,6 +11,10 @@ const (
 	LISTENING = "LISTENING"
 )
 
+// SMSC is the server side for the SMPP protocol and is responsible for 
+// managing connection made to it.  The current implementation allow for
+// function registration for configuring SMSC reaction to PDUs. 
+// However, this is not yet ready for use in Production systems.
 type SMSC struct {
 	listeningSocket net.Listener
 	ESMEs           atomic.Value
@@ -107,13 +111,13 @@ func (s *SMSC) Start() {
 func (s *SMSC) Close() {
 	esme_chan := s.getEsmeFromChannel()
 	for conn := range esme_chan { //read
-		if conn.getEsmeState() != CLOSED {
+		if conn.GetEsmeState() != CLOSED {
 			s.closeAndRemoveEsme(conn)
 		}
 	}
 	s.listeningSocket.Close()
 	if s.State.GetState() != CLOSED {
-		s.State.setState <- CLOSED
+		s.State.SetState(CLOSED)
 		s.State.done <- true
 	}
 }
@@ -145,7 +149,7 @@ func (s *SMSC) acceptAllNewConnection() {
 }
 
 func handleConnection(e *ESME) {
-	for e.getEsmeState() != CLOSED {
+	for e.GetEsmeState() != CLOSED {
 		err := handleOperations(e)
 		if err != nil {
 			InfoSmppLogger.Printf("Issue on Connection: %v\n", err)
@@ -160,7 +164,7 @@ func handleOperations(e *ESME) (formated_error error) {
 		return formated_error
 	}
 	ABindOperation := IsBindOperation(receivedPdu)
-	if e.getEsmeState() == OPEN && !ABindOperation {
+	if e.GetEsmeState() == OPEN && !ABindOperation {
 		formated_error = handleNonBindedOperations(e, receivedPdu)
 	}
 	if _, ok := e.commandFunctions[receivedPdu.header.commandId]; ok {

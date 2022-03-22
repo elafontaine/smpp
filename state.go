@@ -4,12 +4,14 @@ import (
 	"sync"
 )
 
+// Control Loop for managing a ESME state (not a Finite State Machine!).
+// The implementation is concurrent safe as SMPP protocol require to know
+// which state we're in to take some decisions.
 type State struct {
 	state       string
 	setState    chan string
 	reportState chan string
 	done        chan bool
-	alive       chan bool
 	mu          sync.Mutex
 }
 
@@ -19,7 +21,6 @@ func NewESMEState(state string) *State {
 		reportState: make(chan string),
 		setState:    make(chan string),
 		done:        make(chan bool),
-		alive:       make(chan bool),
 	}
 	go obj.stateDispatcher()
 	return &obj
@@ -32,10 +33,8 @@ stateDispatcherLoop:
 		case msg2 := <-state.setState:
 			state.state = msg2
 		case state.reportState <- state.state:
-		case state.alive <- true:
 			continue
 		case <-state.done:
-			close(state.alive)
 			close(state.reportState)
 			break stateDispatcherLoop
 		}
@@ -43,19 +42,19 @@ stateDispatcherLoop:
 }
 
 func (state *State) GetState() string {
-	_, ok := <-state.reportState //clear previous one and check if channel is close
-	if (ok) {
+	if state.controlLoopStillAlive() {
 		return <-state.reportState
 	} 			
 	return CLOSED
 }
 
+func (state *State) SetState(desired_state string) {
+	state.setState <- desired_state
+}
+
 func (state *State) controlLoopStillAlive() bool {
-	x, ok := <-state.alive
-	if !ok {
-		return false
-	}
-	return x
+	_, ok := <-state.reportState
+	return ok
 }
 
 func (state *State) Close() {
