@@ -10,22 +10,24 @@ import (
 	"log"
 )
 
-// Expose Data Structure to enable people to manipulate it.  We don't care if they don't respect SMPP protocols :)
+// Expose Data Structure to enable people to manipulate it.
+// We don't care if they don't respect SMPP protocols :)
+// We use what we can (at least, try to)
 type Body struct {
-	mandatoryParameter map[string]interface{}
-	optionalParameters []map[string]interface{}
+	MandatoryParameter map[string]interface{}
+	OptionalParameters []map[string]interface{}
 }
 
 // Decoding Function (only ParsePdu should be public)
 func parseBody(header Header, pdu_bytes []byte) (body Body, err error) {
-	r := bytes.NewReader(pdu_bytes[16:header.commandLength])
+	r := bytes.NewReader(pdu_bytes[16:header.CommandLength])
 	scan := bufio.NewReader(r)
-	body = Body{mandatoryParameter: map[string]interface{}{}}
-	body.mandatoryParameter = extractMandatoryParameters(header, scan)
+	body = Body{MandatoryParameter: map[string]interface{}{}}
+	body.MandatoryParameter = extractMandatoryParameters(header, scan)
 	optionalParameterBytes := make([]byte, scan.Buffered())
 	bytesLeft, err := io.ReadFull(scan, optionalParameterBytes)
 	if bytesLeft > 0 {
-		body.optionalParameters = extractOptionalParameters(optionalParameterBytes)
+		body.OptionalParameters = extractOptionalParameters(optionalParameterBytes)
 	}
 	return body, err
 }
@@ -69,7 +71,7 @@ func extractSpecificOptionalParameter(parameterBytes []byte) (nbOfBytes map[stri
 
 func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]interface{} {
 	mandatoryParameterMap := map[string]interface{}{}
-	for _, mandatory_params := range mandatoryParameterLists[header.commandId] {
+	for _, mandatory_params := range mandatoryParameterLists[header.CommandId] {
 
 		if mandatory_params["type"].(string) == "string" {
 			currentBytes, _ := scan.ReadBytes(0)
@@ -94,7 +96,7 @@ func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]in
 
 // Encoding functions, only EncodePdu should be public
 func encodeBody(obj PDU) (bodyBytes []byte, err error) {
-	if obj.header.commandId == "" {
+	if obj.Header.CommandId == "" {
 		err = fmt.Errorf("PDU object malformed, missing headers")
 		return nil, err
 	}
@@ -104,7 +106,7 @@ func encodeBody(obj PDU) (bodyBytes []byte, err error) {
 	mandatoryParamsBytes, err = encodeMandatoryParameters(obj)
 	bodyBytes = append(bodyBytes, mandatoryParamsBytes...)
 
-	if len(obj.body.optionalParameters) > 0 {
+	if len(obj.Body.OptionalParameters) > 0 {
 		optionalParamsBytes, err = encodeOptionalParameters(obj)
 		bodyBytes = append(bodyBytes, optionalParamsBytes...)
 	}
@@ -115,7 +117,7 @@ func encodeBody(obj PDU) (bodyBytes []byte, err error) {
 }
 
 func encodeOptionalParameters(obj PDU) (optionalParamsBytes []byte, err error) {
-	for _, optionalParam := range obj.body.optionalParameters {
+	for _, optionalParam := range obj.Body.OptionalParameters {
 		specificOptionalParamsBytes, _ := encodeSpecificOptionalParameter(optionalParam)
 		optionalParamsBytes = append(optionalParamsBytes, specificOptionalParamsBytes...)
 
@@ -147,8 +149,8 @@ func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) (opti
 }
 
 func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
-	for _, mandatoryParam := range mandatoryParameterLists[obj.header.commandId] {
-		value, ok := obj.body.mandatoryParameter[mandatoryParam["name"].(string)]
+	for _, mandatoryParam := range mandatoryParameterLists[obj.Header.CommandId] {
+		value, ok := obj.Body.MandatoryParameter[mandatoryParam["name"].(string)]
 		if ok {
 			if mandatoryParam["type"].(string) == "string" {
 				fieldBytes := []byte(value.(string))
@@ -157,11 +159,11 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 
 			if mandatoryParam["type"].(string) == "integer" || mandatoryParam["type"].(string) == "hex" {
 				integerBuffer := make([]byte, mandatoryParam["max"].(int))
-				binary.PutUvarint(integerBuffer, uint64(obj.body.mandatoryParameter[mandatoryParam["name"].(string)].(int)))
+				binary.PutUvarint(integerBuffer, uint64(obj.Body.MandatoryParameter[mandatoryParam["name"].(string)].(int)))
 				bodyBytes = append(bodyBytes, integerBuffer...)
 			}
 		} else {
-			err = fmt.Errorf("%v of %v pdu missing, can't encode", mandatoryParam["name"].(string), obj.header.commandId)
+			err = fmt.Errorf("%v of %v pdu missing, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId)
 			return nil, err
 		}
 	}

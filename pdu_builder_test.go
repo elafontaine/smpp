@@ -23,14 +23,14 @@ func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defaultBindPdu := PDU{
-				header: Header{
+				Header: Header{
 					0,
 					tt.wantPDU,
 					ESME_ROK,
 					0,
 				},
-				body: Body{
-					mandatoryParameter: map[string]interface{}{
+				Body: Body{
+					MandatoryParameter: map[string]interface{}{
 						"system_id":         "",
 						"password":          "",
 						"system_type":       "",
@@ -39,7 +39,7 @@ func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 						"addr_npi":          0,
 						"address_range":     "",
 					},
-					optionalParameters: nil,
+					OptionalParameters: nil,
 				},
 			}
 			comparePdu(tt.args.builder_function(), defaultBindPdu, t)
@@ -51,15 +51,15 @@ func TestDefaultValueForNewBindTransmitterAndDefaultBindBody(t *testing.T) {
 func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
 	t.Parallel()
 	expectedBindTransmitterObj := bindTransmitterObj
-	expectedBindTransmitterObj.body = defaultBindBody()
-	expectedBindTransmitterObj.body.mandatoryParameter["address_range"] = "44601"
-	expectedBindTransmitterObj.body.mandatoryParameter["system_type"] = "VMS"
-	expectedBindTransmitterObj.body.mandatoryParameter["password"] = "test"
-	expectedBindTransmitterObj.body.mandatoryParameter["system_id"] = "test"
-	expectedBindTransmitterObj.body.mandatoryParameter["interface_version"] = 34
-	expectedBindTransmitterObj.body.mandatoryParameter["addr_ton"] = 2
-	expectedBindTransmitterObj.body.mandatoryParameter["addr_npi"] = 1
-	expectedBindTransmitterObj.header.commandLength = 39
+	expectedBindTransmitterObj.Body = defaultBindBody()
+	expectedBindTransmitterObj.Body.MandatoryParameter["address_range"] = "44601"
+	expectedBindTransmitterObj.Body.MandatoryParameter["system_type"] = "VMS"
+	expectedBindTransmitterObj.Body.MandatoryParameter["password"] = "test"
+	expectedBindTransmitterObj.Body.MandatoryParameter["system_id"] = "test"
+	expectedBindTransmitterObj.Body.MandatoryParameter["interface_version"] = 34
+	expectedBindTransmitterObj.Body.MandatoryParameter["addr_ton"] = 2
+	expectedBindTransmitterObj.Body.MandatoryParameter["addr_npi"] = 1
+	expectedBindTransmitterObj.Header.CommandLength = 39
 
 	bindTransmiter := NewBindTransmitter().
 		WithSystemId("test").
@@ -70,7 +70,7 @@ func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
 		WithAddressTon(2).
 		WithAddressNpi(1)
 	binaryPdu, _ := EncodePdu(bindTransmiter)
-	bindTransmiter.header.commandLength = len(binaryPdu)
+	bindTransmiter.Header.CommandLength = len(binaryPdu)
 
 	t.Run("Constructor pattern for binds", func(t *testing.T) {
 		comparePdu(bindTransmiter, expectedBindTransmitterObj, t)
@@ -80,7 +80,7 @@ func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
 func TestNewBindTransmitterResp(t *testing.T) {
 	t.Parallel()
 	expectedBindTransmitterResp := bindTransmitterRespObj
-	expectedBindTransmitterResp.header.commandLength = 0
+	expectedBindTransmitterResp.Header.CommandLength = 0
 
 	actualResponse := NewBindTransmitterResp().WithSystemId("test")
 	t.Run("instantiating bind_transmitter_resp", func(t *testing.T) {
@@ -92,8 +92,8 @@ func TestNewBindTransmitterResp(t *testing.T) {
 func TestNewBindTransceiverResp(t *testing.T) {
 	t.Parallel()
 	expectedBindTransceiverResp := bindTransmitterRespObj
-	expectedBindTransceiverResp.header.commandLength = 0
-	expectedBindTransceiverResp.header.commandId = "bind_transceiver_resp"
+	expectedBindTransceiverResp.Header.CommandLength = 0
+	expectedBindTransceiverResp.Header.CommandId = "bind_transceiver_resp"
 
 	actualResponse := NewBindTransceiverResp().WithSystemId("test")
 	t.Run("instantiating bind_transceiver_resp", func(t *testing.T) {
@@ -105,8 +105,8 @@ func TestNewBindTransceiverResp(t *testing.T) {
 func TestNewBindReceiverResp(t *testing.T) {
 	t.Parallel()
 	expectedBindReceiverResp := bindTransmitterRespObj
-	expectedBindReceiverResp.header.commandLength = 0
-	expectedBindReceiverResp.header.commandId = "bind_receiver_resp"
+	expectedBindReceiverResp.Header.CommandLength = 0
+	expectedBindReceiverResp.Header.CommandId = "bind_receiver_resp"
 
 	actualResponse := NewBindReceiverResp().WithSystemId("test")
 	t.Run("instantiating bind_receiver_resp", func(t *testing.T) {
@@ -118,13 +118,13 @@ func TestNewBindReceiverResp(t *testing.T) {
 func TestSubmitSMDefaultValues(t *testing.T) {
 	t.Parallel()
 	defaultSubmitSMObj := PDU{
-		header: Header{
-			commandLength:  0,
-			commandId:      "submit_sm",
-			commandStatus:  ESME_ROK,
-			sequenceNumber: 0,
+		Header: Header{
+			CommandLength:  0,
+			CommandId:      "submit_sm",
+			CommandStatus:  ESME_ROK,
+			SequenceNumber: 0,
 		},
-		body: defaultSubmitSmBody(),
+		Body: defaultSubmitSmBody(),
 	}
 	t.Run("Constructor pattern for submit_sm", func(t *testing.T) {
 		comparePdu(NewSubmitSM(), defaultSubmitSMObj, t)
@@ -134,16 +134,16 @@ func TestSubmitSMDefaultValues(t *testing.T) {
 func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 	t.Parallel()
 	expectedSubmitSm := submitSmObj
-	expectedSubmitSm.body = defaultSubmitSmBody()
-	expectedSubmitSm.body.mandatoryParameter["source_addr"] = "1234"
-	expectedSubmitSm.body.mandatoryParameter["source_addr_ton"] = 2
-	expectedSubmitSm.body.mandatoryParameter["source_addr_npi"] = 1
-	expectedSubmitSm.body.mandatoryParameter["destination_addr"] = "12345"
-	expectedSubmitSm.body.mandatoryParameter["dest_addr_ton"] = 2
-	expectedSubmitSm.body.mandatoryParameter["dest_addr_npi"] = 1
-	expectedSubmitSm.body.mandatoryParameter["data_coding"] = 8
-	expectedSubmitSm.body.mandatoryParameter["short_message"] = "Hello"
-	expectedSubmitSm.header.commandLength = 0
+	expectedSubmitSm.Body = defaultSubmitSmBody()
+	expectedSubmitSm.Body.MandatoryParameter["source_addr"] = "1234"
+	expectedSubmitSm.Body.MandatoryParameter["source_addr_ton"] = 2
+	expectedSubmitSm.Body.MandatoryParameter["source_addr_npi"] = 1
+	expectedSubmitSm.Body.MandatoryParameter["destination_addr"] = "12345"
+	expectedSubmitSm.Body.MandatoryParameter["dest_addr_ton"] = 2
+	expectedSubmitSm.Body.MandatoryParameter["dest_addr_npi"] = 1
+	expectedSubmitSm.Body.MandatoryParameter["data_coding"] = 8
+	expectedSubmitSm.Body.MandatoryParameter["short_message"] = "Hello"
+	expectedSubmitSm.Header.CommandLength = 0
 
 	actualSubmitSm := NewSubmitSM().
 		WithSourceAddress("1234").
@@ -163,8 +163,8 @@ func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 func TestDeliverSmInstantiation(t *testing.T) {
 	t.Parallel()
 	expectedDeliverSM := deliverSmObj
-	expectedDeliverSM.body = defaultSubmitSmBody()
-	expectedDeliverSM.header.commandLength = 0
+	expectedDeliverSM.Body = defaultSubmitSmBody()
+	expectedDeliverSM.Header.CommandLength = 0
 
 	actualDeliverSM := NewDeliverSM().WithSequenceNumber(1)
 
@@ -176,9 +176,9 @@ func TestDeliverSmInstantiation(t *testing.T) {
 func TestDataSmInstantiation(t *testing.T) {
 	t.Parallel()
 	expectedDataSm := dataSmObj
-	expectedDataSm.body = defaultSubmitSmBody()
-	expectedDataSm.header.commandLength = 0
-	expectedDataSm.header.sequenceNumber = 0
+	expectedDataSm.Body = defaultSubmitSmBody()
+	expectedDataSm.Header.CommandLength = 0
+	expectedDataSm.Header.SequenceNumber = 0
 
 	actualDataSM := NewDataSM()
 
@@ -190,8 +190,8 @@ func TestDataSmInstantiation(t *testing.T) {
 func TestSubmitSmRespInstantiation(t *testing.T) {
 	t.Parallel()
 	expectedSubmitSmResp := submitSmRespObj
-	expectedSubmitSmResp.header.commandLength = 0
-	expectedSubmitSmResp.header.sequenceNumber = 0
+	expectedSubmitSmResp.Header.CommandLength = 0
+	expectedSubmitSmResp.Header.SequenceNumber = 0
 
 	actualSubmitSmResp := NewSubmitSMResp().
 		WithMessageId("1")
@@ -204,13 +204,13 @@ func TestSubmitSmRespInstantiation(t *testing.T) {
 func TestDeliverSmRespInstantiation(t *testing.T) {
 	t.Parallel()
 	expectedDeliverSmResp := deliverSmRespObj
-	expectedDeliverSmResp.header.commandLength = 0
-	expectedDeliverSmResp.header.sequenceNumber = 0
-	expectedDeliverSmResp.body = Body{
-		mandatoryParameter: map[string]interface{}{},
-		optionalParameters: nil,
+	expectedDeliverSmResp.Header.CommandLength = 0
+	expectedDeliverSmResp.Header.SequenceNumber = 0
+	expectedDeliverSmResp.Body = Body{
+		MandatoryParameter: map[string]interface{}{},
+		OptionalParameters: nil,
 	}
-	expectedDeliverSmResp.body.mandatoryParameter["message_id"] = "2"
+	expectedDeliverSmResp.Body.MandatoryParameter["message_id"] = "2"
 
 	actualDeliverSmResp := NewDeliverSMResp().
 		WithMessageId("2")
@@ -222,9 +222,9 @@ func TestDeliverSmRespInstantiation(t *testing.T) {
 
 func TestGenericNACK(t *testing.T) {
 	t.Parallel()
-	expectedDeliverSmResp := PDU{header: generickNackHeader}
-	expectedDeliverSmResp.header.commandLength = 0
-	expectedDeliverSmResp.header.sequenceNumber = 0
+	expectedDeliverSmResp := PDU{Header: generickNackHeader}
+	expectedDeliverSmResp.Header.CommandLength = 0
+	expectedDeliverSmResp.Header.SequenceNumber = 0
 
 	actualDeliverSmResp := NewGenerickNack().WithSMPPError("ESME_RINVSRCADR")
 
@@ -237,13 +237,13 @@ func TestEnquiryLink(t *testing.T) {
 	t.Parallel()
 
 	expectedEnquiryLink := PDU{
-		header: Header{
-			commandId:     "enquire_link",
-			commandStatus: ESME_ROK,
+		Header: Header{
+			CommandId:     "enquire_link",
+			CommandStatus: ESME_ROK,
 		},
 	}
-	expectedEnquiryLink.header.commandLength = 0
-	expectedEnquiryLink.header.sequenceNumber = 0
+	expectedEnquiryLink.Header.CommandLength = 0
+	expectedEnquiryLink.Header.SequenceNumber = 0
 
 	actualEnquiryLink := NewEnquireLink()
 	t.Run("Constructor Pattern for EnquiryLink ", func(t *testing.T) {
@@ -255,16 +255,16 @@ func TestEnquiryLinkResp(t *testing.T) {
 	t.Parallel()
 
 	expectedEnquiryLink := PDU{
-		header: Header{
-			commandId:     "enquire_link_resp",
-			commandStatus: ESME_ROK,
+		Header: Header{
+			CommandId:     "enquire_link_resp",
+			CommandStatus: ESME_ROK,
 		},
-		body: Body{
-			mandatoryParameter: map[string]interface{}{},
+		Body: Body{
+			MandatoryParameter: map[string]interface{}{},
 		},
 	}
-	expectedEnquiryLink.header.commandLength = 0
-	expectedEnquiryLink.header.sequenceNumber = 0
+	expectedEnquiryLink.Header.CommandLength = 0
+	expectedEnquiryLink.Header.SequenceNumber = 0
 
 	actualEnquiryLink := NewEnquireLinkResp()
 	t.Run("Constructor Pattern for EnquiryLink ", func(t *testing.T) {
@@ -291,10 +291,10 @@ func TestPDUObjectsShouldBeDifferentInMemoryToAvoidSharedObjects(t *testing.T) {
 
 func comparePdu(actualPdu PDU, expectedPdu PDU, t *testing.T) {
 	if got := actualPdu; !reflect.DeepEqual(got, expectedPdu) {
-		if !reflect.DeepEqual(got.header, expectedPdu.header) {
+		if !reflect.DeepEqual(got.Header, expectedPdu.Header) {
 			t.Errorf("Difference in the header structure")
 		}
-		if !reflect.DeepEqual(got.body, expectedPdu.body) {
+		if !reflect.DeepEqual(got.Body, expectedPdu.Body) {
 			t.Errorf("Difference in the body structure")
 		}
 		t.Errorf("The constructor pattern isn't creating the expected PDU object! %v, want %v", got, expectedPdu)

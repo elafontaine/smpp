@@ -26,7 +26,7 @@ type ESME struct {
 	state            *State
 	sequenceNumber   int32
 	closeChan        chan bool
-	commandFunctions map[string]func(*ESME, PDU) error
+	CommandFunctions map[string]func(*ESME, PDU) error
 }
 
 const (
@@ -57,12 +57,6 @@ func NewEsme(clientSocket *net.Conn) (e *ESME) {
 	return e
 }
 
-func registerStandardBehaviours(e *ESME) {
-	e.commandFunctions["enquire_link"] = handleEnquiryLinkPduReceived
-	e.commandFunctions["submit_sm"] = handleSubmitSmPduReceived
-	e.commandFunctions["deliver_sm"] = handleDeliverSmPduReceived
-}
-
 func (e *ESME) Close() {
 	e.clientSocket.Close()
 	e.state.Close()
@@ -88,8 +82,8 @@ func (e *ESME) bindReceiver(systemID, password string) (resp *PDU, err error) {
 }
 
 func (e *ESME) Send(pdu *PDU) (seq_num int, err error) {
-	seq_num = pdu.header.sequenceNumber
-	if pdu.header.sequenceNumber == 0 {
+	seq_num = pdu.Header.SequenceNumber
+	if pdu.Header.SequenceNumber == 0 {
 		seq_num = int(atomic.AddInt32(&(e.sequenceNumber),1))
 	}
 	send_pdu := pdu.WithSequenceNumber(seq_num)
@@ -121,8 +115,8 @@ func waitForBindResponse(e *ESME) (pdu *PDU, err error) {
 }
 
 func setESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
-	if pdu.header.commandStatus == ESME_ROK {
-		switch pdu.header.commandId {
+	if pdu.Header.CommandStatus == ESME_ROK {
+		switch pdu.Header.CommandId {
 		case "bind_receiver_resp":
 			Esme.state.setState <- BOUND_RX
 
@@ -178,4 +172,10 @@ func (e *ESME) isTransmitterState() bool {
 func (e *ESME) isReceiverState() bool {
 	currentState := e.GetEsmeState()
 	return (currentState == BOUND_RX || currentState == BOUND_TRX)
+}
+
+func registerStandardBehaviours(e *ESME) {
+	e.CommandFunctions["enquire_link"] = handleEnquiryLinkPduReceived
+	e.CommandFunctions["submit_sm"] = handleSubmitSmPduReceived
+	e.CommandFunctions["deliver_sm"] = handleDeliverSmPduReceived
 }

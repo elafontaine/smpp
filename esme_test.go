@@ -9,18 +9,7 @@ import (
 )
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
-	smsc, err := GetSmscSimulatorServer()
-	if err != nil {
-		t.Errorf("couldn't start server successfully: %v", err)
-	}
-	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
-	if err != nil {
-		t.Errorf("couldn't connect client to server successfully: %v", err)
-	}
-	smsc.acceptNewConnectionFromSMSC()
-	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0].clientSocket
-
-	
+	smsc, Esme, smsc_connection := GetSmscAndConnectEsme(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 	
 	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
@@ -69,6 +58,20 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	}
 		
 	assert.ElementsMatch(t,seq_numbers_actual, seq_numbers_expected)
+}
+
+func GetSmscAndConnectEsme(t *testing.T) (*SMSC, *ESME, net.Conn) {
+	smsc, err := GetSmscSimulatorServer()
+	if err != nil {
+		t.Errorf("couldn't start server successfully: %v", err)
+	}
+	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
+	if err != nil {
+		t.Errorf("couldn't connect client to server successfully: %v", err)
+	}
+	smsc.acceptNewConnectionFromSMSC()
+	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0].clientSocket
+	return smsc, Esme, smsc_connection
 }
 
 func assertReceivedPduIsSameAsExpected(smsc_connection net.Conn, t *testing.T, expectedPDU PDU) {

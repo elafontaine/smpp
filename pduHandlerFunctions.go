@@ -3,7 +3,7 @@ package smpp
 import "fmt"
 
 func handleEnquiryLinkPduReceived(e *ESME, receivedPdu PDU) (formated_error error) {
-	ResponsePdu := NewEnquireLinkResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
+	ResponsePdu := NewEnquireLinkResp().WithSequenceNumber(receivedPdu.Header.SequenceNumber)
 	_, formated_error = e.Send(&ResponsePdu)
 	return formated_error
 }
@@ -12,7 +12,7 @@ func handleSubmitSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error) 
 	if e.isTransmitterState() {
 		formated_error = replyToSubmitSM(e, receivedPdu)
 	} else {
-		ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.header.sequenceNumber)
+		ResponsePdu := NewSubmitSMResp().WithSequenceNumber(receivedPdu.Header.SequenceNumber)
 		ResponsePdu = ResponsePdu.WithMessageId("").WithSMPPError(ESME_RINVBNDSTS)
 		_, formated_error = e.Send(&ResponsePdu)
 	}
@@ -26,9 +26,9 @@ func replyToSubmitSM(e *ESME, receivedPdu PDU) (err error) {
 }
 
 func (s *SMSC) handleBindOperation(e *ESME, receivedPdu PDU) error {
-	ResponsePdu := receivedPdu.WithCommandId(receivedPdu.header.commandId + "_resp")
+	ResponsePdu := receivedPdu.WithCommandId(receivedPdu.Header.CommandId + "_resp")
 	if !receivedPdu.isSystemId(s.SystemId) || !receivedPdu.isPassword(s.Password) {
-		ResponsePdu.header.commandStatus = ESME_RBINDFAIL
+		ResponsePdu.Header.CommandStatus = ESME_RBINDFAIL
 		InfoSmppLogger.Printf("We didn't received expected credentials")
 	}
 	bindResponse, err := EncodePdu(ResponsePdu)
@@ -48,7 +48,7 @@ func (s *SMSC) handleBindOperation(e *ESME, receivedPdu PDU) error {
 
 func handleDeliverSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error) {
 	ResponsePdu := receivedPdu.
-		WithCommandId(receivedPdu.header.commandId + "_resp").
+		WithCommandId(receivedPdu.Header.CommandId + "_resp").
 		WithSMPPError(ESME_RINVBNDSTS).
 		WithMessageId("")
 	_, formated_error = e.Send(&ResponsePdu)
@@ -57,7 +57,7 @@ func handleDeliverSmPduReceived(e *ESME, receivedPdu PDU) (formated_error error)
 
 func handleNonBindedOperations(e *ESME, receivedPdu PDU) (formated_error error) {
 	ResponsePdu := receivedPdu.
-		WithCommandId(receivedPdu.header.commandId + "_resp").
+		WithCommandId(receivedPdu.Header.CommandId + "_resp").
 		WithMessageId("").
 		WithSMPPError(ESME_RINVBNDSTS)
 	_, formated_error = e.Send(&ResponsePdu)

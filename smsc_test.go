@@ -49,7 +49,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 		WithSystemId(validSystemID).
 		WithSequenceNumber(1).
 		WithSMPPError(ESME_ROK)
-	expectedBuf.header.commandLength = 25
+	expectedBuf.Header.CommandLength = 25
 	comparePdu(*resp_pdu, expectedBuf, t)
 	if !assertWeHaveActiveConnections(smsc, 2) {
 		t.Errorf("We didn't have the expected amount of connections!")

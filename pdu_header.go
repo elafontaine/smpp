@@ -7,10 +7,10 @@ import (
 )
 
 type Header struct {
-	commandLength  int
-	commandId      string
-	commandStatus  string
-	sequenceNumber int
+	CommandLength  int
+	CommandId      string
+	CommandStatus  string
+	SequenceNumber int
 }
 
 func parseHeader(bytes []byte) (header Header, err error) {
@@ -28,10 +28,10 @@ func parseHeader(bytes []byte) (header Header, err error) {
 	}
 	sequenceNumber, err := extractSequenceNumber(bytes)
 	header = Header{
-		commandLength:  length,
-		commandId:      commandId,
-		commandStatus:  commandStatus,
-		sequenceNumber: sequenceNumber,
+		CommandLength:  length,
+		CommandId:      commandId,
+		CommandStatus:  commandStatus,
+		SequenceNumber: sequenceNumber,
 	}
 	return header, err
 
@@ -72,12 +72,12 @@ func verifyLength(fixture []byte) (int, error) {
 
 func encodeHeader(obj PDU, bodyBytes []byte) (headerBytes []byte, err error) {
 	headerBytes = []byte{}
-	commandIdBytes, _ := hex.DecodeString(commandIdByName[obj.header.commandId]["hex"])
+	commandIdBytes, _ := hex.DecodeString(commandIdByName[obj.Header.CommandId]["hex"])
 	headerBytes = append(headerBytes, commandIdBytes...)
-	commandStatusBytes, _ := hex.DecodeString(commandStatusByName[obj.header.commandStatus]["hex"])
+	commandStatusBytes, _ := hex.DecodeString(commandStatusByName[obj.Header.CommandStatus]["hex"])
 	headerBytes = append(headerBytes, commandStatusBytes...)
 	sequence_number_buffer := make([]byte, 4)
-	binary.BigEndian.PutUint32(sequence_number_buffer, uint32(obj.header.sequenceNumber))
+	binary.BigEndian.PutUint32(sequence_number_buffer, uint32(obj.Header.SequenceNumber))
 	headerBytes = append(headerBytes, sequence_number_buffer...)
 	length := len(bodyBytes) + 16
 	lengthBytes := make([]byte, 4)

@@ -69,9 +69,9 @@ func (s *SMSC) smscControlLoop() {
 
 func (smsc *SMSC) createAndAppendNewEsme(serverConnectionSocket net.Conn) {
 	e := NewEsme(&serverConnectionSocket)
-	e.commandFunctions["bind_receiver"] = smsc.handleBindOperation
-	e.commandFunctions["bind_transceiver"] = smsc.handleBindOperation
-	e.commandFunctions["bind_transmitter"] = smsc.handleBindOperation
+	e.CommandFunctions["bind_receiver"] = smsc.handleBindOperation
+	e.CommandFunctions["bind_transceiver"] = smsc.handleBindOperation
+	e.CommandFunctions["bind_transmitter"] = smsc.handleBindOperation
 	appendNewEsmeToSMSC(smsc, e)
 	smsc.NewEsmeChan <- e
 }
@@ -167,8 +167,8 @@ func handleOperations(e *ESME) (formated_error error) {
 	if e.GetEsmeState() == OPEN && !ABindOperation {
 		formated_error = handleNonBindedOperations(e, receivedPdu)
 	}
-	if _, ok := e.commandFunctions[receivedPdu.header.commandId]; ok {
-		formated_error = e.commandFunctions[receivedPdu.header.commandId](e, receivedPdu)
+	if _, ok := e.CommandFunctions[receivedPdu.Header.CommandId]; ok {
+		formated_error = e.CommandFunctions[receivedPdu.Header.CommandId](e, receivedPdu)
 	}
 	return formated_error
 }

@@ -2,124 +2,124 @@ package smpp
 
 func defaultHeader() Header {
 	return Header{
-		commandLength:  0,
-		commandId:      "generick_nack",
-		commandStatus:  ESME_ROK,
-		sequenceNumber: 0,
+		CommandLength:  0,
+		CommandId:      "generick_nack",
+		CommandStatus:  ESME_ROK,
+		SequenceNumber: 0,
 	}
 }
 
 /* Sane Defaults objects */
 func NewGenerickNack() PDU {
 	header := defaultHeader()
-	return PDU{header: header}
+	return PDU{Header: header}
 }
 
 func NewEnquireLink() PDU {
 	header := defaultHeader()
-	header.commandId = "enquire_link"
-	return PDU{header: header}
+	header.CommandId = "enquire_link"
+	return PDU{Header: header}
 }
 
 func NewEnquireLinkResp() PDU {
 	header := defaultHeader()
-	header.commandId = "enquire_link_resp"
+	header.CommandId = "enquire_link_resp"
 	body := Body{
-		mandatoryParameter: map[string]interface{}{},
+		MandatoryParameter: map[string]interface{}{},
 	}
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewBindTransmitter() PDU {
 	header := defaultHeader()
-	header.commandId = "bind_transmitter"
+	header.CommandId = "bind_transmitter"
 	body := defaultBindBody()
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewBindReceiver() PDU {
 	header := defaultHeader()
-	header.commandId = "bind_receiver"
+	header.CommandId = "bind_receiver"
 	body := defaultBindBody()
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewBindTransceiver() PDU {
 	header := defaultHeader()
-	header.commandId = "bind_transceiver"
+	header.CommandId = "bind_transceiver"
 	body := defaultBindBody()
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewBindTransmitterResp() PDU {
 	header := defaultHeader()
-	header.commandId = "bind_transmitter_resp"
+	header.CommandId = "bind_transmitter_resp"
 	body := Body{
-		mandatoryParameter: map[string]interface{}{},
+		MandatoryParameter: map[string]interface{}{},
 	}
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewBindTransceiverResp() PDU {
 	header := defaultHeader()
-	header.commandId = "bind_transceiver_resp"
+	header.CommandId = "bind_transceiver_resp"
 	body := Body{
-		mandatoryParameter: map[string]interface{}{},
+		MandatoryParameter: map[string]interface{}{},
 	}
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewBindReceiverResp() PDU {
 	header := defaultHeader()
-	header.commandId = "bind_receiver_resp"
+	header.CommandId = "bind_receiver_resp"
 	body := Body{
-		mandatoryParameter: map[string]interface{}{},
+		MandatoryParameter: map[string]interface{}{},
 	}
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewSubmitSM() PDU {
 	header := defaultHeader()
-	header.commandId = "submit_sm"
+	header.CommandId = "submit_sm"
 	body := defaultSubmitSmBody()
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewSubmitSMResp() PDU {
 	header := defaultHeader()
-	header.commandId = "submit_sm_resp"
+	header.CommandId = "submit_sm_resp"
 	body := Body{
-		mandatoryParameter: map[string]interface{}{},
+		MandatoryParameter: map[string]interface{}{},
 	}
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewDeliverSMResp() PDU {
 	header := defaultHeader()
-	header.commandId = "deliver_sm_resp"
+	header.CommandId = "deliver_sm_resp"
 	body := Body{
-		mandatoryParameter: map[string]interface{}{},
+		MandatoryParameter: map[string]interface{}{},
 	}
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewDeliverSM() PDU {
 	header := defaultHeader()
-	header.commandId = "deliver_sm"
+	header.CommandId = "deliver_sm"
 	body := defaultSubmitSmBody()
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func NewDataSM() PDU {
 	header := defaultHeader()
-	header.commandId = "data_sm"
+	header.CommandId = "data_sm"
 	body := defaultSubmitSmBody()
-	return PDU{header: header, body: body}
+	return PDU{Header: header, Body: body}
 }
 
 func defaultBindBody() Body {
 	body := Body{
-		mandatoryParameter: map[string]interface{}{
+		MandatoryParameter: map[string]interface{}{
 			"system_id":         "",
 			"password":          "",
 			"system_type":       "",
@@ -128,14 +128,14 @@ func defaultBindBody() Body {
 			"addr_npi":          0,
 			"address_range":     "",
 		},
-		optionalParameters: nil,
+		OptionalParameters: nil,
 	}
 	return body
 }
 
 func defaultSubmitSmBody() Body {
 	body := Body{
-		mandatoryParameter: map[string]interface{}{
+		MandatoryParameter: map[string]interface{}{
 			"service_type":            "",
 			"source_addr_ton":         0,
 			"source_addr_npi":         0,
@@ -155,7 +155,7 @@ func defaultSubmitSmBody() Body {
 			"sm_length":               0,
 			"short_message":           "",
 		},
-		optionalParameters: nil,
+		OptionalParameters: nil,
 	}
 	return body
 
@@ -163,110 +163,110 @@ func defaultSubmitSmBody() Body {
 
 /* Builder Pattern associated functions */
 func (p PDU) WithSystemId(s string) PDU {
-	p.body.mandatoryParameter["system_id"] = s
+	p.Body.MandatoryParameter["system_id"] = s
 	return p
 }
 
 func (p PDU) WithPassword(s string) PDU {
-	p.body.mandatoryParameter["password"] = s
+	p.Body.MandatoryParameter["password"] = s
 	return p
 }
 
 func (p PDU) WithAddressRange(s string) PDU {
-	p.body.mandatoryParameter["address_range"] = s
+	p.Body.MandatoryParameter["address_range"] = s
 	return p
 }
 
 func (p PDU) WithSystemType(s string) PDU {
-	p.body.mandatoryParameter["system_type"] = s
+	p.Body.MandatoryParameter["system_type"] = s
 	return p
 }
 
 func (p PDU) WithInterfaceVersion(i int) PDU {
-	p.body.mandatoryParameter["interface_version"] = i
+	p.Body.MandatoryParameter["interface_version"] = i
 	return p
 }
 
 func (p PDU) WithAddressNpi(i int) PDU {
-	p.body.mandatoryParameter["addr_npi"] = i
+	p.Body.MandatoryParameter["addr_npi"] = i
 	return p
 }
 
 func (p PDU) WithAddressTon(i int) PDU {
-	p.body.mandatoryParameter["addr_ton"] = i
+	p.Body.MandatoryParameter["addr_ton"] = i
 	return p
 }
 
 func (p PDU) WithSourceAddressNpi(i int) PDU {
-	p.body.mandatoryParameter["source_addr_npi"] = i
+	p.Body.MandatoryParameter["source_addr_npi"] = i
 	return p
 }
 
 func (p PDU) WithSourceAddressTon(i int) PDU {
-	p.body.mandatoryParameter["source_addr_ton"] = i
+	p.Body.MandatoryParameter["source_addr_ton"] = i
 	return p
 }
 
 func (p PDU) WithSourceAddress(s string) PDU {
-	p.body.mandatoryParameter["source_addr"] = s
+	p.Body.MandatoryParameter["source_addr"] = s
 	return p
 }
 
 func (p PDU) WithDestinationAddressNpi(i int) PDU {
-	p.body.mandatoryParameter["dest_addr_npi"] = i
+	p.Body.MandatoryParameter["dest_addr_npi"] = i
 	return p
 }
 
 func (p PDU) WithDestinationAddressTon(i int) PDU {
-	p.body.mandatoryParameter["dest_addr_ton"] = i
+	p.Body.MandatoryParameter["dest_addr_ton"] = i
 	return p
 }
 
 func (p PDU) WithDestinationAddress(s string) PDU {
-	p.body.mandatoryParameter["destination_addr"] = s
+	p.Body.MandatoryParameter["destination_addr"] = s
 	return p
 }
 
 func (p PDU) WithDataCoding(i int) PDU {
-	p.body.mandatoryParameter["data_coding"] = i
+	p.Body.MandatoryParameter["data_coding"] = i
 	return p
 }
 
 func (p PDU) WithMessage(s string) PDU {
-	p.body.mandatoryParameter["short_message"] = s
+	p.Body.MandatoryParameter["short_message"] = s
 	return p
 }
 
 func (p PDU) WithMessageId(id string) PDU {
-	p.body.mandatoryParameter["message_id"] = id
+	p.Body.MandatoryParameter["message_id"] = id
 	return p
 }
 
 func (p PDU) WithSMPPError(id string) PDU {
-	p.header.commandStatus = id
+	p.Header.CommandStatus = id
 	return p
 }
 
 func (p PDU) WithCommandId(id string) PDU {
-	p.header.commandId = id
+	p.Header.CommandId = id
 	return p
 }
 
 func (p PDU) WithSequenceNumber(id int) PDU {
-	p.header.sequenceNumber = id
+	p.Header.SequenceNumber = id
 	return p
 }
 
 func (p PDU) isSystemId(id string) bool {
-	return p.body.mandatoryParameter["system_id"] == id
+	return p.Body.MandatoryParameter["system_id"] == id
 }
 
 func (p PDU) isPassword(password string) bool {
-	return p.body.mandatoryParameter["password"] == password
+	return p.Body.MandatoryParameter["password"] == password
 }
 
 func IsBindOperation(receivedPdu PDU) bool {
-	switch receivedPdu.header.commandId {
+	switch receivedPdu.Header.CommandId {
 	case "bind_transmitter",
 		"bind_receiver",
 		"bind_transceiver":

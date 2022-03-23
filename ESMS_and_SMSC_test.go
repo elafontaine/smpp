@@ -47,7 +47,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			if LastError != nil {
 				t.Errorf("Error sending to or handling the answer from SMSC : %v", LastError)
 			}
-			if resp_pdu.header.commandStatus != ESME_ROK {
+			if resp_pdu.Header.CommandStatus != ESME_ROK {
 				t.Errorf("Answer wasn't successful ! %v", resp_pdu)
 			}
 			if state := Esme.GetEsmeState(); state != tt.wantBoundAs {
@@ -94,9 +94,9 @@ func TestReactionFromSmscOnFirstPDUForDefaultBehaviour(t *testing.T) {
 			if err != nil {
 				t.Logf("didn't receive a successful answer (might not be an issue): %v", err)
 			}
-			tt.wantSMSCResp.header.sequenceNumber = pduResp.header.sequenceNumber
-			tt.wantSMSCResp.header.commandLength = pduResp.header.commandLength
-			if err != nil && pduResp.header.commandStatus != tt.wantSMSCResp.header.commandStatus {
+			tt.wantSMSCResp.Header.SequenceNumber = pduResp.Header.SequenceNumber
+			tt.wantSMSCResp.Header.CommandLength = pduResp.Header.CommandLength
+			if err != nil && pduResp.Header.CommandStatus != tt.wantSMSCResp.Header.CommandStatus {
 				t.Errorf("Error handling the answer from SMSC : %v", err)
 			}
 			comparePdu(*pduResp, tt.wantSMSCResp, t)
@@ -154,8 +154,8 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 				t.Errorf("Failed to receive bytes : %v", LastError)
 			}
 			actualPdu, LastError := ParsePdu(actualBytes)
-			expectedPdu.header.commandLength = actualPdu.header.commandLength
-			expectedPdu.header.sequenceNumber = sequence_number
+			expectedPdu.Header.CommandLength = actualPdu.Header.CommandLength
+			expectedPdu.Header.SequenceNumber = sequence_number
 			if LastError != nil {
 				t.Errorf("Couldn't parse received bytes : %v", LastError)
 			}

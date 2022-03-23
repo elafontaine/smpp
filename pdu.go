@@ -2,8 +2,8 @@ package smpp
 
 // Expose Data Structure to enable people to manipulate it.  We don't care if they don't respect SMPP protocols :)
 type PDU struct {
-	header Header
-	body   Body
+	Header Header
+	Body   Body
 }
 
 // Decoding Function, only ParsePdu should be public
@@ -13,7 +13,7 @@ func ParsePdu(bytes []byte) (pdu PDU, err error) {
 		return PDU{}, err3
 	}
 	body, _ := parseBody(header, bytes)
-	pdu = PDU{header: header, body: body}
+	pdu = PDU{Header: header, Body: body}
 	return pdu, err3
 }
 
