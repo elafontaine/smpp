@@ -2,9 +2,11 @@ package smpp
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"testing"
 	"time"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,8 +37,8 @@ func TestClosingEsmeCloseSocketAndDoesntBlock(t *testing.T) {
 }
 
 func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
-	smsc, _, Esme := connectEsmeAndSmscTogether(t)
-	defer CloseAndAssertClean(smsc, Esme, t)
+	smsc, _, esme := connectEsmeAndSmscTogether(t)
+	defer CloseAndAssertClean(smsc, esme, t)
 
 	all_seq_numbers := make(chan int)
 	seq_numbers_expected := []int{}
@@ -44,9 +46,9 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	iterations := 100
 	for i:= 0; i<= iterations; i++ {
 		go func(){
-			enquireLink1 := NewEnquireLink()
-			actual_seq_num, err1 := Esme.Send(&enquireLink1)
-			if err1 != nil {
+			enquireLink := NewEnquireLink()
+			actual_seq_num, err := esme.Send(&enquireLink)
+			if err != nil {
 				t.Error("Issue sending enquire_link")
 			}
 			all_seq_numbers <- actual_seq_num
@@ -58,6 +60,50 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	}
 		
 	assert.ElementsMatch(t,seq_numbers_actual, seq_numbers_expected)
+}
+
+func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
+	smsc, esme, _ := GetSmscAndConnectEsme(t)
+	defer CloseAndAssertClean(smsc, esme, t)
+
+	message_ids := messageIdsGenerator()
+
+	esme.CommandFunctions["deliver_sm"] = func(e *ESME, p PDU) error {
+		pdu_resp := NewDeliverSMResp().
+			WithMessageId(<-message_ids).
+			WithSequenceNumber(p.Header.SequenceNumber)
+		if ! e.isReceiverState() {
+			pdu_resp = pdu_resp.WithSMPPError(ESME_RINVBNDSTS)
+		}
+		_, err := e.Send(&pdu_resp)
+		return err
+	}
+
+	esme.StartControlLoop()
+
+	smsc_esme := smsc.ESMEs.Load().([]*ESME)[0]
+	deliverSm := NewDeliverSM().WithMessage("Hello")
+	smsc_esme.Send(&deliverSm)
+	pdu, smsc_err := smsc_esme.receivePdu()
+	if smsc_err != nil {
+		t.Errorf("Something failed: %v", smsc_err)
+	}
+	if pdu.Header == (Header{}) || pdu.Body.MandatoryParameter["message_id"] != "0" {
+		t.Errorf("Didn't receive expected Pdu: %v", pdu)
+	}
+}
+
+func messageIdsGenerator() chan string {
+	message_ids := make(chan string)
+	go func() {
+		i := 0
+		for {
+			message_ids <- fmt.Sprint(i)
+			i++
+		}
+
+	}()
+	return message_ids
 }
 
 func GetSmscAndConnectEsme(t *testing.T) (*SMSC, *ESME, net.Conn) {

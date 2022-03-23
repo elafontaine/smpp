@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -25,8 +26,8 @@ type ESME struct {
 	clientSocket     net.Conn
 	state            *State
 	sequenceNumber   int32
-	closeChan        chan bool
 	CommandFunctions map[string]func(*ESME, PDU) error
+	wg               sync.WaitGroup
 }
 
 const (
@@ -50,8 +51,8 @@ func NewEsme(clientSocket *net.Conn) (e *ESME) {
 		*clientSocket,
 		NewESMEState(OPEN),
 		0,
-		make(chan bool),
 		map[string]func(*ESME, PDU) error{},
+		sync.WaitGroup{},
 	}
 	registerStandardBehaviours(e)
 	return e
@@ -60,6 +61,7 @@ func NewEsme(clientSocket *net.Conn) (e *ESME) {
 func (e *ESME) Close() {
 	e.clientSocket.Close()
 	e.state.Close()
+	e.wg.Wait()
 }
 
 func (e *ESME) GetEsmeState() string {
@@ -84,7 +86,7 @@ func (e *ESME) bindReceiver(systemID, password string) (resp *PDU, err error) {
 func (e *ESME) Send(pdu *PDU) (seq_num int, err error) {
 	seq_num = pdu.Header.SequenceNumber
 	if pdu.Header.SequenceNumber == 0 {
-		seq_num = int(atomic.AddInt32(&(e.sequenceNumber),1))
+		seq_num = int(atomic.AddInt32(&(e.sequenceNumber), 1))
 	}
 	send_pdu := pdu.WithSequenceNumber(seq_num)
 	expectedBytes, err := EncodePdu(send_pdu)
@@ -136,7 +138,7 @@ func (e *ESME) receivePdu() (PDU, error) {
 	readBuf, LastError := readPduBytesFromConnection(e.clientSocket, time.Now().Add(1*time.Second))
 	if LastError != nil {
 		if errors.Is(LastError, io.EOF) || errors.Is(LastError, net.ErrClosed) {
-			e.Close()
+			go e.Close()
 		}
 		return PDU{}, fmt.Errorf("Couldn't read on a Connection: \n err =%v", LastError)
 	}
@@ -178,4 +180,20 @@ func registerStandardBehaviours(e *ESME) {
 	e.CommandFunctions["enquire_link"] = handleEnquiryLinkPduReceived
 	e.CommandFunctions["submit_sm"] = handleSubmitSmPduReceived
 	e.CommandFunctions["deliver_sm"] = handleDeliverSmPduReceived
+}
+
+func (e *ESME) StartControlLoop() {
+	e.wg.Add(1)
+	go e.pduDispatcher()
+}
+
+func (e *ESME) pduDispatcher() {
+	for e.GetEsmeState() != CLOSED {
+		pdu, err:= e.receivePdu()
+		if err != nil || pdu.Header == (Header{}) {
+			continue
+		}
+		e.CommandFunctions[pdu.Header.CommandId](e,pdu)
+	}
+	e.wg.Done()
 }
