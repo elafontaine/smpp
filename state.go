@@ -59,8 +59,8 @@ func (state *State) controlLoopStillAlive() bool {
 
 func (state *State) Close() {
 	state.mu.Lock()
+	defer state.mu.Unlock()
 	if state.controlLoopStillAlive() {
 		state.done <- true
 	}
-	state.mu.Unlock()
 }

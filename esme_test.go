@@ -83,9 +83,12 @@ func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
 
 	smsc_esme := smsc.ESMEs.Load().([]*ESME)[0]
 	deliverSm := NewDeliverSM().WithMessage("Hello")
-	smsc_esme.Send(&deliverSm)
+	_, err := smsc_esme.Send(&deliverSm)
+	if err != nil {
+		t.Errorf("couldn't send to server successfully: %v", err)
+	}
 	pdu, smsc_err := smsc_esme.receivePdu()
-	if smsc_err != nil {
+	if smsc_err != nil  {
 		t.Errorf("Something failed: %v", smsc_err)
 	}
 	if pdu.Header == (Header{}) || pdu.Body.MandatoryParameter["message_id"] != "0" {
@@ -115,7 +118,10 @@ func GetSmscAndConnectEsme(t *testing.T) (*SMSC, *ESME, net.Conn) {
 	if err != nil {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
-	smsc.acceptNewConnectionFromSMSC()
+	_, err = smsc.acceptNewConnectionFromSMSC()
+	if err != nil {
+		t.Errorf("couldn't accept client to server successfully: %v", err)
+	}
 	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0].clientSocket
 	return smsc, Esme, smsc_connection
 }
