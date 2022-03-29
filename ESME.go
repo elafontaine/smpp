@@ -140,7 +140,7 @@ func (e *ESME) receivePdu() (PDU, error) {
 		if errors.Is(LastError, io.EOF) || errors.Is(LastError, net.ErrClosed) {
 			go e.Close()
 		}
-		return PDU{}, fmt.Errorf("Couldn't read on a Connection: \n err =%v", LastError)
+		return PDU{}, fmt.Errorf("Couldn't read on a Connection: \n err =%w", LastError)
 	}
 	return ParsePdu(readBuf)
 }

@@ -2,6 +2,7 @@ package smpp
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"testing"
@@ -35,6 +36,31 @@ func TestClosingEsmeCloseSocketAndDoesntBlock(t *testing.T) {
 	Esme.Close()
 	Esme.Close()
 }
+
+func TestSendingOnClosedEsmeReturnError(t *testing.T) {
+	smsc, Esme, _ := GetSmscAndConnectEsme(t)
+	defer CloseAndAssertClean(smsc, Esme, t)
+	Esme.Close()
+	
+	_, LastError1 := Esme.BindTransmitter(validSystemID,validPassword)
+	if !errors.Is(LastError1,net.ErrClosed){
+		t.Errorf("Error in test : %v", LastError1)
+	}
+}
+
+func TestReceivingOnClosingEsmeReturnError(t *testing.T) {
+	smsc, Esme, _ := GetSmscAndConnectEsme(t)
+	defer CloseAndAssertClean(smsc, Esme, t)
+	
+	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
+	Esme.Send(&firstPdu)
+	Esme.Close()
+	_, err := Esme.receivePdu()
+	if !errors.Is(err,net.ErrClosed){ 
+		t.Errorf("Error in test : %v", err)
+	}
+}
+
 
 func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	smsc, _, esme := connectEsmeAndSmscTogether(t)
