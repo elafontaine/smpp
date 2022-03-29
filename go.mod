@@ -1,4 +1,4 @@
-module smpp
+module github.com/elafontaine/smpp
 
 go 1.16
 
