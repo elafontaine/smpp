@@ -189,11 +189,11 @@ func (e *ESME) StartControlLoop() {
 
 func (e *ESME) pduDispatcher() {
 	for e.GetEsmeState() != CLOSED {
-		pdu, err:= e.receivePdu()
+		pdu, err := e.receivePdu()
 		if err != nil || pdu.Header == (Header{}) {
 			continue
 		}
-		e.CommandFunctions[pdu.Header.CommandId](e,pdu)
+		e.CommandFunctions[pdu.Header.CommandId](e, pdu)
 	}
 	e.wg.Done()
 }

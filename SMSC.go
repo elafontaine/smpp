@@ -11,9 +11,9 @@ const (
 	LISTENING = "LISTENING"
 )
 
-// SMSC is the server side for the SMPP protocol and is responsible for 
+// SMSC is the server side for the SMPP protocol and is responsible for
 // managing connection made to it.  The current implementation allow for
-// function registration for configuring SMSC reaction to PDUs. 
+// function registration for configuring SMSC reaction to PDUs.
 // However, this is not yet ready for use in Production systems.
 type SMSC struct {
 	listeningSocket net.Listener

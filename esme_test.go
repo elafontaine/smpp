@@ -14,7 +14,7 @@ import (
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	smsc, Esme, smsc_connection := GetSmscAndConnectEsme(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
-	
+
 	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
 	secondPdu := NewSubmitSM().WithSequenceNumber(2)
 	sequence_number1, LastError1 := Esme.Send(&firstPdu)
@@ -41,9 +41,9 @@ func TestSendingOnClosedEsmeReturnError(t *testing.T) {
 	smsc, Esme, _ := GetSmscAndConnectEsme(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 	Esme.Close()
-	
-	_, LastError1 := Esme.BindTransmitter(validSystemID,validPassword)
-	if !errors.Is(LastError1,net.ErrClosed){
+
+	_, LastError1 := Esme.BindTransmitter(validSystemID, validPassword)
+	if !errors.Is(LastError1, net.ErrClosed) {
 		t.Errorf("Error in test : %v", LastError1)
 	}
 }
@@ -51,16 +51,15 @@ func TestSendingOnClosedEsmeReturnError(t *testing.T) {
 func TestReceivingOnClosingEsmeReturnError(t *testing.T) {
 	smsc, Esme, _ := GetSmscAndConnectEsme(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
-	
+
 	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
 	Esme.Send(&firstPdu)
 	Esme.Close()
 	_, err := Esme.receivePdu()
-	if !errors.Is(err,net.ErrClosed){ 
+	if !errors.Is(err, net.ErrClosed) {
 		t.Errorf("Error in test : %v", err)
 	}
 }
-
 
 func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	smsc, _, esme := connectEsmeAndSmscTogether(t)
@@ -70,8 +69,8 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	seq_numbers_expected := []int{}
 	seq_numbers_actual := []int{}
 	iterations := 100
-	for i:= 0; i<= iterations; i++ {
-		go func(){
+	for i := 0; i <= iterations; i++ {
+		go func() {
 			enquireLink := NewEnquireLink()
 			actual_seq_num, err := esme.Send(&enquireLink)
 			if err != nil {
@@ -80,12 +79,12 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 			all_seq_numbers <- actual_seq_num
 		}()
 	}
-	for i:= 0; i<= iterations; i++ {
+	for i := 0; i <= iterations; i++ {
 		seq_numbers_expected = append(seq_numbers_expected, i+1)
 		seq_numbers_actual = append(seq_numbers_actual, <-all_seq_numbers)
 	}
-		
-	assert.ElementsMatch(t,seq_numbers_actual, seq_numbers_expected)
+
+	assert.ElementsMatch(t, seq_numbers_actual, seq_numbers_expected)
 }
 
 func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
@@ -98,7 +97,7 @@ func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
 		pdu_resp := NewDeliverSMResp().
 			WithMessageId(<-message_ids).
 			WithSequenceNumber(p.Header.SequenceNumber)
-		if ! e.isReceiverState() {
+		if !e.isReceiverState() {
 			pdu_resp = pdu_resp.WithSMPPError(ESME_RINVBNDSTS)
 		}
 		_, err := e.Send(&pdu_resp)
@@ -114,7 +113,7 @@ func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
 		t.Errorf("couldn't send to server successfully: %v", err)
 	}
 	pdu, smsc_err := smsc_esme.receivePdu()
-	if smsc_err != nil  {
+	if smsc_err != nil {
 		t.Errorf("Something failed: %v", smsc_err)
 	}
 	if pdu.Header == (Header{}) || pdu.Body.MandatoryParameter["message_id"] != "0" {

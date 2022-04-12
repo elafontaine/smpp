@@ -44,7 +44,7 @@ stateDispatcherLoop:
 func (state *State) GetState() string {
 	if state.controlLoopStillAlive() {
 		return <-state.reportState
-	} 			
+	}			
 	return CLOSED
 }
 
