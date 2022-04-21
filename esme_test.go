@@ -61,6 +61,21 @@ func TestReceivingOnClosingEsmeReturnError(t *testing.T) {
 	}
 }
 
+func TestAssigningEsmeSomeDefaultsWithBinding(t *testing.T) {
+	smsc, _, Esme := connectEsmeAndSmscTogether(t)
+	defer CloseAndAssertClean(smsc, Esme, t)
+	esmeDefaults := map[string]interface{}{
+		"system_id": validSystemID,
+		"password":  validPassword,
+	}
+	Esme.SetDefaults(esmeDefaults)
+	err := Esme.BindAsTransmitter()
+
+	if err != nil || Esme.GetEsmeState() != BOUND_TX {
+		t.Errorf("Error in test : %v", err)
+	}
+}
+
 func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	smsc, _, esme := connectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, esme, t)

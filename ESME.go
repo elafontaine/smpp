@@ -27,6 +27,7 @@ type ESME struct {
 	state            *State
 	sequenceNumber   int32
 	CommandFunctions map[string]func(*ESME, PDU) error
+	defaults		 map[string]interface{}
 	wg               sync.WaitGroup
 }
 
@@ -52,6 +53,7 @@ func NewEsme(clientSocket *net.Conn) (e *ESME) {
 		NewESMEState(OPEN),
 		0,
 		map[string]func(*ESME, PDU) error{},
+		map[string]interface{}{},
 		sync.WaitGroup{},
 	}
 	registerStandardBehaviours(e)
@@ -64,6 +66,13 @@ func (e *ESME) Close() {
 	e.wg.Wait()
 }
 
+func (e *ESME) SetDefaults(defaults map[string]interface{}){
+	if defaults == nil {
+		panic("Setting the ESME defaults with a nil value!")
+	}
+	e.defaults = defaults 
+}
+
 func (e *ESME) GetEsmeState() string {
 	return e.state.GetState()
 }
@@ -71,6 +80,12 @@ func (e *ESME) GetEsmeState() string {
 func (e *ESME) BindTransmitter(systemID, password string) (resp *PDU, err error) {
 	pdu := NewBindTransmitter().WithSystemId(systemID).WithPassword(password)
 	return e.bindWithSmsc(pdu)
+}
+
+func (e *ESME) BindAsTransmitter() (err error) {
+	pdu := NewBindTransmitter().WithDefaults(e.defaults)
+	_, err = e.bindWithSmsc(pdu)
+	return err
 }
 
 func (e *ESME) bindTransceiver(systemID, password string) (resp *PDU, err error) {
