@@ -289,6 +289,24 @@ func TestPDUObjectsShouldBeDifferentInMemoryToAvoidSharedObjects(t *testing.T) {
 	}
 }
 
+func TestBuildingWithDefaults(t *testing.T) {
+	destination := "5551234567"
+	source := "5557654321"
+	expectedPdu := NewSubmitSM().
+		WithDataCoding(8).
+		WithDestinationAddress(destination).
+		WithSourceAddress(source)
+	pduDefault := map[string]interface{}{
+		"destination_addr": destination,
+		"source_addr":      source,
+		"data_coding":      8,
+	}
+
+	pduToApply := NewSubmitSM().WithDefaults(pduDefault)
+	comparePdu(pduToApply, expectedPdu, t)
+
+}
+
 func comparePdu(actualPdu PDU, expectedPdu PDU, t *testing.T) {
 	if got := actualPdu; !reflect.DeepEqual(got, expectedPdu) {
 		if !reflect.DeepEqual(got.Header, expectedPdu.Header) {

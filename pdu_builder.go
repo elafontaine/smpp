@@ -162,6 +162,13 @@ func defaultSubmitSmBody() Body {
 }
 
 /* Builder Pattern associated functions */
+func (p PDU) WithDefaults(defaults map[string]interface{}) PDU {
+	for k, v := range defaults {
+		p.Body.MandatoryParameter[k] = v
+	}
+	return p
+}
+
 func (p PDU) WithSystemId(s string) PDU {
 	p.Body.MandatoryParameter["system_id"] = s
 	return p
