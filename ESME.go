@@ -44,12 +44,12 @@ func InstantiateEsme(serverAddress net.Addr, connType string) (esme *ESME, err e
 	if err != nil {
 		return nil, err
 	}
-	return NewEsme(&clientSocket), nil
+	return NewEsme(clientSocket), nil
 }
 
-func NewEsme(clientSocket *net.Conn) (e *ESME) {
+func NewEsme(clientSocket net.Conn) (e *ESME) {
 	e = &ESME{
-		*clientSocket,
+		clientSocket,
 		NewESMEState(OPEN),
 		0,
 		map[string]func(*ESME, PDU) error{},

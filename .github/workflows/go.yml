@@ -27,3 +27,8 @@ jobs:
       run: |
           go test -race -coverprofile=coverage.txt -covermode=atomic -count=100
           bash <(curl -s https://codecov.io/bash)
+
+    - name: Usage Test
+      run: |
+          go run examples/tls_esme_usage/tls_esme_usage.go
+          go run examples/simple_esme_usage/simple_esme_usage.go

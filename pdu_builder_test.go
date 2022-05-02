@@ -84,8 +84,7 @@ func TestNewBindTransmitterResp(t *testing.T) {
 
 	actualResponse := NewBindTransmitterResp().WithSystemId("test")
 	t.Run("instantiating bind_transmitter_resp", func(t *testing.T) {
-		comparePdu(actualResponse,
-			expectedBindTransmitterResp, t)
+		comparePdu(actualResponse, expectedBindTransmitterResp, t)
 	})
 }
 
@@ -97,8 +96,7 @@ func TestNewBindTransceiverResp(t *testing.T) {
 
 	actualResponse := NewBindTransceiverResp().WithSystemId("test")
 	t.Run("instantiating bind_transceiver_resp", func(t *testing.T) {
-		comparePdu(actualResponse,
-			expectedBindTransceiverResp, t)
+		comparePdu(actualResponse, expectedBindTransceiverResp, t)
 	})
 }
 
@@ -110,8 +108,7 @@ func TestNewBindReceiverResp(t *testing.T) {
 
 	actualResponse := NewBindReceiverResp().WithSystemId("test")
 	t.Run("instantiating bind_receiver_resp", func(t *testing.T) {
-		comparePdu(actualResponse,
-			expectedBindReceiverResp, t)
+		comparePdu(actualResponse, expectedBindReceiverResp, t)
 	})
 }
 
