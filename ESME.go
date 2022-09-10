@@ -27,7 +27,7 @@ type ESME struct {
 	state            *State
 	sequenceNumber   int32
 	CommandFunctions map[string]func(*ESME, PDU) error
-	defaults		 map[string]interface{}
+	defaults         map[string]interface{}
 	wg               sync.WaitGroup
 }
 
@@ -66,11 +66,11 @@ func (e *ESME) Close() {
 	e.wg.Wait()
 }
 
-func (e *ESME) SetDefaults(defaults map[string]interface{}){
+func (e *ESME) SetDefaults(defaults map[string]interface{}) {
 	if defaults == nil {
 		panic("Setting the ESME defaults with a nil value!")
 	}
-	e.defaults = defaults 
+	e.defaults = defaults
 }
 
 func (e *ESME) GetEsmeState() string {
@@ -88,20 +88,21 @@ func (e *ESME) BindAsTransmitter() (err error) {
 	return err
 }
 
-func (e *ESME) bindTransceiver(systemID, password string) (resp *PDU, err error) {
+func (e *ESME) BindTransceiver(systemID, password string) (resp *PDU, err error) {
 	pdu := NewBindTransceiver().WithSystemId(systemID).WithPassword(password)
 	return e.bindWithSmsc(pdu)
 }
 
-func (e *ESME) bindReceiver(systemID, password string) (resp *PDU, err error) {
+func (e *ESME) BindReceiver(systemID, password string) (resp *PDU, err error) {
 	pdu := NewBindReceiver().WithSystemId(systemID).WithPassword(password)
 	return e.bindWithSmsc(pdu)
 }
 
 func (e *ESME) Send(pdu *PDU) (seq_num int, err error) {
-	seq_num = pdu.Header.SequenceNumber
 	if pdu.Header.SequenceNumber == 0 {
 		seq_num = int(atomic.AddInt32(&(e.sequenceNumber), 1))
+	} else {
+		seq_num = pdu.Header.SequenceNumber
 	}
 	send_pdu := pdu.WithSequenceNumber(seq_num)
 	expectedBytes, err := EncodePdu(send_pdu)
@@ -144,7 +145,7 @@ func setESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
 			Esme.state.setState <- BOUND_TRX
 		}
 	} else {
-		err = fmt.Errorf("The answer received wasn't OK or not the type we expected!")
+		err = fmt.Errorf("The answer received wasn't OK or not the type we expected : %v", pdu)
 	}
 	return err
 }

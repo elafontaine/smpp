@@ -34,9 +34,9 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 		args        args
 		wantBoundAs string
 	}{
-		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).bindReceiver}, BOUND_RX},
+		{"TestEsmeCanBindWithSmscAsAReceiver", args{(*ESME).BindReceiver}, BOUND_RX},
 		{"TestEsmeCanBindWithSmscAsATransmitter", args{(*ESME).BindTransmitter}, BOUND_TX},
-		{"TestEsmeCanBindWithSmscAsATransceiver", args{(*ESME).bindTransceiver}, BOUND_TRX},
+		{"TestEsmeCanBindWithSmscAsATransceiver", args{(*ESME).BindTransceiver}, BOUND_TRX},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

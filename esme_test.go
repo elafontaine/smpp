@@ -125,11 +125,11 @@ func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
 	deliverSm := NewDeliverSM().WithMessage("Hello")
 	_, err := smsc_esme.Send(&deliverSm)
 	if err != nil {
-		t.Errorf("couldn't send to server successfully: %v", err)
+		t.Errorf("couldn't send to client successfully: %v", err)
 	}
 	pdu, smsc_err := smsc_esme.receivePdu()
 	if smsc_err != nil {
-		t.Errorf("Something failed: %v", smsc_err)
+		t.Errorf("Something failed while waiting for client to answer to server: %v", smsc_err)
 	}
 	if pdu.Header == (Header{}) || pdu.Body.MandatoryParameter["message_id"] != "0" {
 		t.Errorf("Didn't receive expected Pdu: %v", pdu)

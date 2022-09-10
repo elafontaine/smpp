@@ -29,7 +29,7 @@ OOP was initially meant for `struct` and behaviours.  This is exactly why I like
 golang paradigm ; you can have interfaces and define behaviours, but it will be 
 attach to a `struct` which can be used from another composition.  This means we should 
 use that same pattern for our own data.  This is why we can intantiate an ESME by passing
-a server address and it will connect, but the struct is using a socket.  This is done as an ESME 
+a server address and it will connect, but the struct is receiving a socket underneath.  This is done as an ESME 
 isn't responsible for the TCP/TLS (transport) layer, it's responsible for the smpp layer.  So as long as you pass an ESME a socket object, we should be able to run an ESME over it.  Same for SMSC.  You can find an example of that in the `example` folder.
 
 

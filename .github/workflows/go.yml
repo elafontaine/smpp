@@ -32,3 +32,4 @@ jobs:
       run: |
           cd examples/tls_esme_usage/ && go run tls_esme_usage.go
           cd ../simple_esme_usage && go run simple_esme_usage.go
+          cd ../custom_functions && go run deliver_sm_handler.go
