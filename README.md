@@ -33,13 +33,10 @@ a server address and it will connect, but the struct is receiving a socket under
 isn't responsible for the TCP/TLS (transport) layer, it's responsible for the smpp layer.  So as long as you pass an ESME a socket object, we should be able to run an ESME over it.  Same for SMSC.  You can find an example of that in the `example` folder.
 
 
-How to use it ?
+How to use the library ?
 ---------------
 
-For now, I only did the decoding of a PDU packet. The encoding test are using it to reconstruct the exact same
-PDU through an "decode -> encode" stream of tests.
-
-Every PDU exchanged will be of type `PDU`. That type contains a `Header` which always contain the SMPP headers value.
+Every PDU exchanged will be of type `PDU`. That type contains a `Header` which always contain the SMPP headers values.
 It also contains the `Body` which in turns contains a `mandatoryParameter` field for the mandatory SMPP parameter of the PDU command used. Finally, the `Body`
 also contain the `optionalParameter` field which is a map of the optional parameters present on the pdu.
 
@@ -59,13 +56,13 @@ clientSocket, err := net.Dial("tcp", serverAddress.String())
 e:= NewEsme(clientSocket)
 
 ```
-The `ESME` object has some convenience functions at the moment and but is currently underwork... 
+The `ESME` object has some convenience functions at the moment and *but is currently underwork and it may changes*... 
 I know that I want people to be able to ask for "one ESME, please!" and be able to provide the framework 
 for handling the SMPP exchange protocol value through the golang channels.  So the ESME will probably evolve 
 into a mechanics of passing PDU objects or bytes through a channel (probably bytes as there is no validation
 on PDU objects themselves, and I want the user to receive the error, not the internals of the ESME).
 
-The `SMSC` object is currently not made for prod and instantiate ESMEs for each connection.  There is some
+The `SMSC` object is currently not made for production use and instantiate ESMEs for each connection.  There is some
 logic at the moment for dispatching messages, but it would probably be using the same as the ESME when they're ready.
 
 How to register custom functions for managing the SMPP session
