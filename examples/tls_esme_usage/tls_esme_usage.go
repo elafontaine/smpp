@@ -54,5 +54,5 @@ func main() {
 		fmt.Print(fmt.Errorf("Couldn't send on esme : %v", err))
 		os.Exit(1)
 	}
-	fmt.Print("Reached the end of the program!")
+	fmt.Println("Reached the end of the program!")
 }

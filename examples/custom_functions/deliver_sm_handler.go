@@ -150,5 +150,5 @@ func main() {
 
 	}
 	
-	fmt.Print("Reached the end of the program!")
+	fmt.Println("Reached the end of the program!")
 }
