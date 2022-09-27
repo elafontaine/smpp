@@ -3,7 +3,15 @@ SMPP (a golang library)
 
 [![codecov](https://codecov.io/gh/elafontaine/smpp/branch/master/graph/badge.svg?token=5A5N54FX17)](https://codecov.io/gh/elafontaine/smpp)
 
-Why another smpp library?
+
+- [SMPP (a golang library)](#smpp-a-golang-library)
+  - [Why another smpp library](#why-another-smpp-library)
+  - [Composition over inheritance](#composition-over-inheritance)
+  - [How to use the library ?](#how-to-use-the-library-)
+  - [How to register custom functions for managing the SMPP session](#how-to-register-custom-functions-for-managing-the-smpp-session)
+
+
+Why another smpp library
 -------------
 Because I believe doing something using basic types is easier on people to understand. Having to use Specific types for
 instantiating helps, but when you have to expect an object to be multiple types and handle special cases, I believe a
@@ -49,7 +57,7 @@ bind_pdu = NewBindTransmitter().WithSystemId(systemID).WithPassword(password).Wi
 pduBytes, err := EncodePdu(bind_pdu)
 ```
 
-Now, this is not really useful by itself, unless you have an ESME object you could use to abstract much of the complexity away ; 
+Now, this is not really useful by itself, unless you have an `ESME` object you could use to abstract much of the complexity away ; 
 
 ```
 clientSocket, err := net.Dial("tcp", serverAddress.String())
@@ -69,5 +77,5 @@ How to register custom functions for managing the SMPP session
 --------------------------------------------------------------
 
 Currently being worked on.
-
+Example in [./examples/custom_functions/deliver_sm_handler.go](./examples/custom_functions/deliver_sm_handler.go)
 
