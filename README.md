@@ -48,6 +48,26 @@ Every PDU exchanged will be of type `PDU`. That type contains a `Header` which a
 It also contains the `Body` which in turns contains a `mandatoryParameter` field for the mandatory SMPP parameter of the PDU command used. Finally, the `Body`
 also contain the `optionalParameter` field which is a map of the optional parameters present on the pdu.
 
+```
+type PDU struct {
+	Header Header
+	Body   Body
+}
+
+type Header struct {
+	CommandLength  int
+	CommandId      string
+	CommandStatus  string
+	SequenceNumber int
+}
+
+type Body struct {
+	MandatoryParameter map[string]interface{}
+	OptionalParameters []map[string]interface{}
+}
+
+```
+
 Although, being able to make a PDU object is nice, it's often an annoyance of having to instantiate all the mandatory parameters and their defaults.  For that matter, the `pdu_builder.go` file contains multiple builder for the SMPP PDU types and their defaults as well as the building functions to assign a value to a parameter (weither it's in the `Header` or `mandatoryParameter`,  the `optionalParameter` hasn't been made official yet in how we want to handle it).
 
 So, if you want to be making your own PDUs
