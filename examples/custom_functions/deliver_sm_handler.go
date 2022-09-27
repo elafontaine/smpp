@@ -54,7 +54,12 @@ func init() {
 	ErrorSmppLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
-func step1(server_smpp_conn_obj *ESME, deliverSM PDU) {
+func step1(server_smpp_conn_obj *ESME) {
+	deliverSM := NewDeliverSM().
+	WithDestinationAddress(expectedDestinationAddress).
+	WithDataCoding(3).
+	WithMessage("Hello, how are you today ?").
+	WithSourceAddress("5557654321")
 	_, err := server_smpp_conn_obj.Send(&deliverSM)
 	if err != nil {
 		fmt.Print(fmt.Errorf("Couldn't send on esme : %v", err))
@@ -137,11 +142,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	deliverSM := NewDeliverSM().
-		WithDestinationAddress(expectedDestinationAddress).
-		WithDataCoding(3).
-		WithMessage("Hello, how are you today ?").
-		WithSourceAddress("5557654321")
+
 
 	server_smpp_conn_obj := smsc.ESMEs.Load().([]*ESME)[0] // Have the server connection object send the deliver_sm
 	step5processing_channel := make(chan bool)
@@ -149,7 +150,7 @@ func main() {
 
 	InfoSmppLogger.Println("About to send")
 	// Step 1, skipping the response pdu checks
-	step1(server_smpp_conn_obj, deliverSM)
+	step1(server_smpp_conn_obj)
 	Wait10SecondsForAnAnswerOrContinue(step5processing_channel)
 
 	fmt.Println("Reached the end of the program!")
