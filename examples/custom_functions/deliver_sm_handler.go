@@ -51,28 +51,27 @@ func init() {
 	ErrorSmppLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
-func step2(receivedMessageChannel chan *pduNeedingAnswer) func(e *ESME,p PDU) error {
+func step2(receivedMessageChannel chan *pduNeedingAnswer) func(e *ESME, p PDU) error {
 	return func(e *ESME, p PDU) error {
-	resp_pdu := NewDeliverSMResp().WithSequenceNumber(p.Header.SequenceNumber)
-	current_state := e.GetEsmeState()
-	DebugSmppLogger.Printf("Pdu received on client : %v", p)
-	if !(current_state == BOUND_RX || current_state == BOUND_TRX) {
-		resp_pdu.WithSMPPError(ESME_RINVBNDSTS)
-		e.Send(&resp_pdu)
-		return fmt.Errorf("Not supposed to receive deliver_sm if binding isn't as a receiver!")
-	} else { // Right type of binding
-		if p.Body.MandatoryParameter["destination_addr"] == expectedDestinationAddress {
-			// expected destination is right
-			// send PDU into channel to offload esme and process the PDU in our own manner (maybe we got multiple esme ?)
-			answerChannel := make(chan *PDU)
-			receivedMessageChannel <- &pduNeedingAnswer{p, answerChannel}
-			e.Send(<-answerChannel) // Step 3 
+		current_state := e.GetEsmeState()
+		DebugSmppLogger.Printf("Pdu received on client : %v", p)
+		if !(current_state == BOUND_RX || current_state == BOUND_TRX) {
+			resp_pdu := NewDeliverSMResp().WithSequenceNumber(p.Header.SequenceNumber)
+			resp_pdu.WithSMPPError(ESME_RINVBNDSTS)
+			e.Send(&resp_pdu)
+			return fmt.Errorf("Not supposed to receive deliver_sm if binding isn't as a receiver!")
+		} else { // Right type of binding
+			if p.Body.MandatoryParameter["destination_addr"] == expectedDestinationAddress {
+				// expected destination is right
+				// send PDU into channel to offload esme and process the PDU in our own manner (maybe we got multiple esme ?)
+				answerChannel := make(chan *PDU)
+				receivedMessageChannel <- &pduNeedingAnswer{p, answerChannel}
+				e.Send(<-answerChannel) // Step 3
+			}
 		}
+		return nil
 	}
-	return nil
 }
-}
-
 
 func step4(channel chan bool) func(*ESME, PDU) error {
 	return func(e *ESME, p PDU) error {
@@ -149,6 +148,6 @@ func main() {
 	case <-step4processing_channel:
 
 	}
-	
+
 	fmt.Println("Reached the end of the program!")
 }
