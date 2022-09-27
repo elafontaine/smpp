@@ -12,26 +12,29 @@ import (
 
 /*
 https://www.plantuml.com/plantuml/uml/RS-zheCm30NWdQSu8mmCzxOJ0-9DK9HO9MfYezWKyVRzaP0ewchx77qUr5on9QTAi_hH2pDvYy9eUv1c6dsAn8OEVr3YW40fFgYCcglZlks_h_yn5_6aYaAUNebZ4f6D2hkKDjH1m69Jv1lMQ1EYDQTcd6mTBd2iAnMOm2R2xFoTxDSFvr67woxREseMGv0tmF7saJJLG1oMd9u0
-
-     ┌───────────────┐                            ┌───────────┐
-     │smsc_connection│                            │esme_client│
-     └───────┬───────┘                            └─────┬─────┘
-             │            1 send deliver_sm             │
-             │─────────────────────────────────────────>│
-             │                                          │
-             │                                          ────┐
-             │                                              │ 2 process received deliver_sm internally (do nothing with it)
-             │                                          <───┘
-             │                                          │
-             │         3 answer to the packet           │
-             │<─────────────────────────────────────────│
-             │                                          │
-             ────┐                                      │
-                 │ 4 process answer (not doing anything)│
-             <───┘                                      │
-     ┌───────┴───────┐                            ┌─────┴─────┐
-     │smsc_connection│                            │esme_client│
-     └───────────────┘                            └───────────┘
+     ┌───────────────┐            ┌───────────┐                                               ┌───────────────────┐
+     │smsc_connection│            │esme_client│                                               │main_client_program│
+     └───────┬───────┘            └─────┬─────┘                                               └─────────┬─────────┘
+             │   1 send deliver_sm     ┌┴┐                                                              │          
+             │───────────────────────> │ │                                                              │          
+             │                         │ │                                                              │          
+             │                         │ │2 process received deliver_sm internally (do nothing with it)┌┴┐         
+             │                         │ │ ───────────────────────────────────────────────────────────>│ │         
+             │                         │ │                                                             └┬┘         
+             │                         │ │      3 return answer to deliver_sm (do nothing with it)      │          
+             │                         │ │ <─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─          
+             │                         └┬┘                                                              │          
+             │ 4 answer to the packet   │                                                               │          
+             │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                                                               │          
+             │    ────┐                                                                                 │          
+             │        │ 5 process answer                                                                │          
+             │    <───┘  (not doing anything)                                                           │          
+             │                                                                                          │          
+             │                          │                                                               │          
+             │                          │                                                               │          
+     ┌───────┴───────┐            ┌─────┴─────┐                                               ┌─────────┴─────────┐
+     │smsc_connection│            │esme_client│                                               │main_client_program│
+     └───────────────┘            └───────────┘                                               └───────────────────┘
 */
 
 type pduNeedingAnswer struct {
@@ -49,6 +52,15 @@ func init() {
 	InfoSmppLogger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 	WarningSmppLogger = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
 	ErrorSmppLogger = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+}
+
+func step1(server_smpp_conn_obj *ESME, deliverSM PDU) {
+	_, err := server_smpp_conn_obj.Send(&deliverSM)
+	if err != nil {
+		fmt.Print(fmt.Errorf("Couldn't send on esme : %v", err))
+		os.Exit(1)
+	}
+	InfoSmppLogger.Println("Sent")
 }
 
 func step2(receivedMessageChannel chan *pduNeedingAnswer) func(e *ESME, p PDU) error {
@@ -73,7 +85,7 @@ func step2(receivedMessageChannel chan *pduNeedingAnswer) func(e *ESME, p PDU) e
 	}
 }
 
-func step4(channel chan bool) func(*ESME, PDU) error {
+func step5(channel chan bool) func(*ESME, PDU) error {
 	return func(e *ESME, p PDU) error {
 
 		if p.Body.MandatoryParameter["message_id"] != expectedMessageId {
@@ -90,7 +102,7 @@ func main() {
 	connType := "tcp"
 
 	receivedMessageChannel := make(chan *pduNeedingAnswer)
-	// internal esme_client doing "something" with received PDU and provide an answer to the esme_client (step 2)
+	// internal esme_client doing "something" with received PDU and provide an answer to the esme_client (step 3)
 	go func(c chan *pduNeedingAnswer) {
 		for {
 			pdu_package, ok := <-c
@@ -111,7 +123,7 @@ func main() {
 		fmt.Print(fmt.Errorf("Issue starting ESME connection to server! : %v", err))
 		os.Exit(1)
 	}
-	smsc.Start() // Start the control loop for the smsc_connection (useful for step 4)
+	smsc.Start() // Start the control loop for the smsc_connection (useful for step 5)
 	defer smsc.Close()
 
 	// function that step 2 will be calling on the esme_client
@@ -132,22 +144,24 @@ func main() {
 		WithSourceAddress("5557654321")
 
 	server_smpp_conn_obj := smsc.ESMEs.Load().([]*ESME)[0] // Have the server connection object send the deliver_sm
-	step4processing_channel := make(chan bool)
-	server_smpp_conn_obj.CommandFunctions["deliver_sm_resp"] = step4(step4processing_channel)
+	step5processing_channel := make(chan bool)
+	server_smpp_conn_obj.CommandFunctions["deliver_sm_resp"] = step5(step5processing_channel)
 
 	InfoSmppLogger.Println("About to send")
-	_, err = server_smpp_conn_obj.Send(&deliverSM) // Step 1, skipping the response pdu checks
-	if err != nil {
-		fmt.Print(fmt.Errorf("Couldn't send on esme : %v", err))
-		os.Exit(1)
-	}
-	InfoSmppLogger.Println("Sent")
+	// Step 1, skipping the response pdu checks
+	step1(server_smpp_conn_obj, deliverSM)
+	Wait10SecondsForAnAnswerOrContinue(step5processing_channel)
+
+	fmt.Println("Reached the end of the program!")
+}
+
+
+
+func Wait10SecondsForAnAnswerOrContinue(step5processing_channel chan bool) {
 	select {
 	case <-time.After(10 * time.Second):
 		InfoSmppLogger.Fatalln("Timeout of the program.")
-	case <-step4processing_channel:
+	case <-step5processing_channel:
 
 	}
-
-	fmt.Println("Reached the end of the program!")
 }
