@@ -97,5 +97,5 @@ How to register custom functions for managing the SMPP session
 --------------------------------------------------------------
 
 Currently being worked on.
-Example in [./examples/custom_functions/deliver_sm_handler.go](examples/custom_functions/deliver_sm_handler.go)
+Example in [custom_functions/deliver_sm_handler.go](examples/custom_functions/deliver_sm_handler.go)
 
