@@ -16,30 +16,29 @@ type Header struct {
 func parseHeader(bytes []byte) (header Header, err error) {
 	length, err := verifyLength(bytes)
 	if err != nil {
-		return header, err
+		return
 	}
 	commandId, err := extractCommandID(bytes)
 	if err != nil {
-		return header, err
+		return
 	}
 	commandStatus, err := extractCommandStatus(bytes)
 	if err != nil {
-		return header, err
+		return
 	}
-	sequenceNumber, err := extractSequenceNumber(bytes)
+	sequenceNumber := extractSequenceNumber(bytes)
 	header = Header{
 		CommandLength:  length,
 		CommandId:      commandId,
 		CommandStatus:  commandStatus,
 		SequenceNumber: sequenceNumber,
 	}
-	return header, err
-
+	return
 }
 
-func extractSequenceNumber(bytes []byte) (sequenceNumber int, err error) {
+func extractSequenceNumber(bytes []byte) (sequenceNumber int) {
 	sequenceNumber = int(binary.BigEndian.Uint32(bytes[12:16]))
-	return sequenceNumber, err
+	return
 }
 
 func extractCommandStatus(bytes []byte) (string, error) {

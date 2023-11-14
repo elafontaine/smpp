@@ -8,13 +8,25 @@ type PDU struct {
 
 // Decoding Function, only ParsePdu should be public
 func ParsePdu(bytes []byte) (pdu PDU, err error) {
-	header, err3 := parseHeader(bytes)
-	if err3 != nil {
-		return PDU{}, err3
+	header, err := parseHeader(bytes)
+	if err != nil {
+		return
 	}
 	body, _ := parseBody(header, bytes)
 	pdu = PDU{Header: header, Body: body}
-	return pdu, err3
+	return
+}
+
+func (p *PDU) Write(b []byte) (n int, err error) {
+	pdu, err := ParsePdu(b)
+	if err != nil {
+		return
+	}
+	
+	p.Body = pdu.Body
+	p.Header = pdu.Header
+	n = p.Header.CommandLength
+	return
 }
 
 // Encoding functions, only EncodePdu should be public

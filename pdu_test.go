@@ -1,8 +1,10 @@
 package smpp
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -355,4 +357,42 @@ func TestInvalidPduEncodingCasesBody(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_PduWriter(t *testing.T)  {
+	t.Parallel()
+	type args struct {
+		bytes []byte
+	}
+	tests := []struct {
+		name 	string
+		args 	args
+		wantPdu PDU
+		err     error
+	} { 
+		{
+			name: "Right to the right size buffer",
+		 	args: args{bytes: bytes.Clone(bindTransmitterFixture)},
+			wantPdu: bindTransmitterObj,
+		},
+		{
+			name: "Wrong content should be returning an error",
+		 	args: args{bytes: bytes.Clone(bindTransmitterFixture[:len(bindTransmitterFixture)-20])},
+			wantPdu: PDU{},
+			err: fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(bindTransmitterFixture[:len(bindTransmitterFixture)-20])),
+		},
+	 }
+	 for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualPdu := PDU{} 
+			got,err := actualPdu.Write(tt.args.bytes)
+			eq := reflect.DeepEqual(actualPdu,tt.wantPdu)
+			if !eq {
+				t.Errorf("Write not working: got = %v, wantPdu = %v", got, tt.wantPdu )
+			}
+			if err != nil && err.Error() != tt.err.Error() {
+				t.Errorf("Error wasn't the one expected: got %v, wanted err %v", err, tt.err)
+			}
+		})
+	 }
 }
