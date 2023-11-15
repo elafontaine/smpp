@@ -9,6 +9,12 @@ import (
 	"io"
 	"log"
 )
+type Error string
+func (e Error) Error() string {
+	return string(e)
+}
+
+const missingHeaderError = Error("PDU object malformed, missing headers")
 
 // Expose Data Structure to enable people to manipulate it.
 // We don't care if they don't respect SMPP protocols :)
@@ -97,8 +103,7 @@ func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]in
 // Encoding functions, only EncodePdu should be public
 func encodeBody(obj PDU) (bodyBytes []byte, err error) {
 	if obj.Header.CommandId == "" {
-		err = fmt.Errorf("PDU object malformed, missing headers")
-		return nil, err
+		return nil, missingHeaderError
 	}
 	var mandatoryParamsBytes []byte
 	var optionalParamsBytes []byte

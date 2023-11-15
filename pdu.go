@@ -42,3 +42,12 @@ func EncodePdu(obj PDU) (pdu_bytes []byte, err error) {
 	pdu_bytes = append(headerBytes, bodyBytes...)
 	return pdu_bytes, err
 }
+
+func (p *PDU) Read(b []byte) (n int, err error) {
+	pdu, err := EncodePdu(*p)
+	if err != nil {
+		return
+	}
+	n = copy(b, pdu)
+	return
+}

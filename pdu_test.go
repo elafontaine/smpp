@@ -322,7 +322,7 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 	}{
 		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
 		{"missingBodySubmitSMPduButWithServiceType raise mandatory fields are missings", args{missingBodySubmitSMPduButWithServiceType}, errors.New("source_addr_ton of submit_sm pdu missing, can't encode")},
-		{"missingHeader raise header missing error", args{missingHeaderPdu}, errors.New("PDU object malformed, missing headers")},
+		{"missingHeader raise header missing error", args{missingHeaderPdu}, missingHeaderError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -359,40 +359,78 @@ func TestInvalidPduEncodingCasesBody(t *testing.T) {
 	}
 }
 
-func Test_PduWriter(t *testing.T)  {
+func Test_PduWriter(t *testing.T) {
 	t.Parallel()
 	type args struct {
 		bytes []byte
 	}
 	tests := []struct {
-		name 	string
-		args 	args
+		name    string
+		args    args
 		wantPdu PDU
 		err     error
-	} { 
+	}{
 		{
-			name: "Right to the right size buffer",
-		 	args: args{bytes: bytes.Clone(bindTransmitterFixture)},
+			name:    "Write to the right size buffer",
+			args:    args{bytes: bytes.Clone(bindTransmitterFixture)},
 			wantPdu: bindTransmitterObj,
 		},
 		{
-			name: "Wrong content should be returning an error",
-		 	args: args{bytes: bytes.Clone(bindTransmitterFixture[:len(bindTransmitterFixture)-20])},
+			name:    "Wrong content should be returning an error",
+			args:    args{bytes: bytes.Clone(bindTransmitterFixture[:len(bindTransmitterFixture)-20])},
 			wantPdu: PDU{},
-			err: fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(bindTransmitterFixture[:len(bindTransmitterFixture)-20])),
+			err:     fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(bindTransmitterFixture[:len(bindTransmitterFixture)-20])),
 		},
-	 }
-	 for _, tt := range tests {
+	}
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualPdu := PDU{} 
-			got,err := actualPdu.Write(tt.args.bytes)
-			eq := reflect.DeepEqual(actualPdu,tt.wantPdu)
+			actualPdu := PDU{}
+			_, err := actualPdu.Write(tt.args.bytes)
+			eq := reflect.DeepEqual(actualPdu, tt.wantPdu)
 			if !eq {
-				t.Errorf("Write not working: got = %v, wantPdu = %v", got, tt.wantPdu )
+				t.Errorf("Write not working: got = %v, wantPdu = %v", actualPdu, tt.wantPdu)
 			}
 			if err != nil && err.Error() != tt.err.Error() {
 				t.Errorf("Error wasn't the one expected: got %v, wanted err %v", err, tt.err)
 			}
 		})
-	 }
+	}
+}
+
+func TestPduReader(t *testing.T) {
+	t.Parallel()
+	type args struct {
+		Pdu PDU
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantBytes []byte
+		err       error
+	}{
+		{
+			name:      "Read to the right size buffer",
+			args:      args{Pdu: bindTransmitterObj},
+			wantBytes: bindTransmitterFixture,
+		},
+		{
+			name:      "Wrong content should be returning an error",
+			args:      args{Pdu: missingHeaderPdu},
+			wantBytes: []byte{},
+			err:       missingHeaderError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualBytes := make([]byte, len(tt.wantBytes))
+			_, err := tt.args.Pdu.Read(actualBytes)
+			eq := reflect.DeepEqual(actualBytes, tt.wantBytes)
+			if !eq {
+				t.Errorf("Read not working: got = %v, wantPdu = %v", actualBytes, tt.wantBytes)
+			}
+			if err != nil && err.Error() != tt.err.Error() {
+				t.Errorf("Error wasn't the one expected: got %v, wanted err %v", err, tt.err)
+			}
+		})
+	}
 }
