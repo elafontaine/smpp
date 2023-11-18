@@ -220,7 +220,7 @@ func Test_parseHeaderInvalidPdu(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseHeader(tt.args.bytes)
+			_, err := ParsePdu(tt.args.bytes)
 			if err.Error() != tt.wantErr.Error() {
 				t.Errorf("parseHeader() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -323,36 +323,14 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
 		{"missingBodySubmitSMPduButWithServiceType raise mandatory fields are missings", args{missingBodySubmitSMPduButWithServiceType}, errors.New("source_addr_ton of submit_sm pdu missing, can't encode")},
 		{"missingHeader raise header missing error", args{missingHeaderPdu}, missingHeaderError},
+		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
+		{"missingBodyDeliverSMPdu raise mandatory fields are missings", args{missingBodyDeliverSMPdu}, errors.New("service_type of deliver_sm pdu missing, can't encode")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := EncodePdu(tt.args.pdu_obj)
 			if err.Error() != tt.wantErr.Error() {
 				t.Errorf("EncodePdu() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-		})
-	}
-}
-
-func TestInvalidPduEncodingCasesBody(t *testing.T) {
-	t.Parallel()
-	type args struct {
-		pdu_obj PDU
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr error
-	}{
-		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
-		{"missingBodyDeliverSMPdu raise mandatory fields are missings", args{missingBodyDeliverSMPdu}, errors.New("service_type of deliver_sm pdu missing, can't encode")},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := encodeBody(tt.args.pdu_obj)
-			if err.Error() != tt.wantErr.Error() {
-				t.Errorf("encodeBody() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})
