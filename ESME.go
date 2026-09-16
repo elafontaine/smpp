@@ -100,7 +100,7 @@ func (e *ESME) BindReceiver(systemID, password string) (resp *PDU, err error) {
 
 func (e *ESME) Send(pdu *PDU) (seq_num int, err error) {
 	if pdu.Header.SequenceNumber == 0 {
-		seq_num = int(atomic.AddInt32(&(e.sequenceNumber), 1))
+		seq_num = int(atomic.AddInt32(&(e.sequenceNumber), 1)) // replace with sequence number generator for concurrency 
 	} else {
 		seq_num = pdu.Header.SequenceNumber
 	}
@@ -209,7 +209,11 @@ func (e *ESME) pduDispatcher() {
 		if err != nil || pdu.Header == (Header{}) {
 			continue
 		}
-		e.CommandFunctions[pdu.Header.CommandId](e, pdu)
+		if handler, ok := e.CommandFunctions[pdu.Header.CommandId]; ok {
+			if err := handler(e, pdu); err != nil {
+				ErrorSmppLogger.Printf("Error handling %s PDU: %v", pdu.Header.CommandId, err)
+			}
+		}
 	}
 	e.wg.Done()
 }

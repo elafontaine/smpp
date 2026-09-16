@@ -53,7 +53,9 @@ func TestReceivingOnClosingEsmeReturnError(t *testing.T) {
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
-	Esme.Send(&firstPdu)
+	if _, err := Esme.Send(&firstPdu); err != nil {
+		t.Errorf("Error sending PDU: %v", err)
+	}
 	Esme.Close()
 	_, err := Esme.receivePdu()
 	if !errors.Is(err, net.ErrClosed) {
