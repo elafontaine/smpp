@@ -140,8 +140,8 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 			smsc, _, Esme := connectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
-			Esme.state.setState <- tt.args.bind_state
-			smsc.ESMEs.Load().([]*ESME)[0].state.setState <- tt.args.bind_state
+			Esme.state.SetState(tt.args.bind_state)
+			smsc.ESMEs.Load().([]*ESME)[0].state.SetState(tt.args.bind_state)
 			sequence_number, LastError := Esme.Send(&tt.args.send_pdu)
 			if LastError != nil {
 				t.Errorf("Failed to send pdu : %v", LastError)

@@ -61,8 +61,8 @@ func NewEsme(clientSocket net.Conn) (e *ESME) {
 }
 
 func (e *ESME) Close() {
+	e.state.SetState(CLOSED)
 	e.clientSocket.Close()
-	e.state.Close()
 	e.wg.Wait()
 }
 
@@ -100,7 +100,7 @@ func (e *ESME) BindReceiver(systemID, password string) (resp *PDU, err error) {
 
 func (e *ESME) Send(pdu *PDU) (seq_num int, err error) {
 	if pdu.Header.SequenceNumber == 0 {
-		seq_num = int(atomic.AddInt32(&(e.sequenceNumber), 1)) // replace with sequence number generator for concurrency 
+		seq_num = int(atomic.AddInt32(&(e.sequenceNumber), 1)) // replace with sequence number generator for concurrency
 	} else {
 		seq_num = pdu.Header.SequenceNumber
 	}
@@ -136,13 +136,13 @@ func setESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
 	if pdu.Header.CommandStatus == ESME_ROK {
 		switch pdu.Header.CommandId {
 		case "bind_receiver_resp":
-			Esme.state.setState <- BOUND_RX
+			Esme.state.SetState(BOUND_RX)
 
 		case "bind_transmitter_resp":
-			Esme.state.setState <- BOUND_TX
+			Esme.state.SetState(BOUND_TX)
 
 		case "bind_transceiver_resp":
-			Esme.state.setState <- BOUND_TRX
+			Esme.state.SetState(BOUND_TRX)
 		}
 	} else {
 		err = fmt.Errorf("The answer received wasn't OK or not the type we expected : %v", pdu)

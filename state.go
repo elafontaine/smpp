@@ -1,66 +1,46 @@
 package smpp
 
-import (
-	"sync"
-)
-
-// Control Loop for managing a ESME state (not a Finite State Machine!).
-// The implementation is concurrent safe as SMPP protocol require to know
-// which state we're in to take some decisions.
+// State holds the session state of an ESME (OPEN, BOUND_TX, ..., CLOSED).
+//
+// It works like a generator that has to be fed: asking for the current state
+// hands it to you, and nobody else can ask until you hand the next one back.
+// Transition does both halves in one call, so the state can never be lost and
+// a read-decide-write sequence is atomic. There is no goroutine to start or
+// stop: the buffered channel itself is the generator.
 type State struct {
-	state       string
-	setState    chan string
-	reportState chan string
-	done        chan bool
-	mu          sync.Mutex
+	token chan string // holds the state; empty while a Transition is running
 }
 
 func NewESMEState(state string) *State {
-	obj := State{
-		state:       state,
-		reportState: make(chan string),
-		setState:    make(chan string),
-		done:        make(chan bool),
+	s := &State{token: make(chan string, 1)}
+	s.token <- state
+	return s
+}
+
+// Transition hands f the current state and stores whatever f returns as the
+// next one. It returns both, so a caller can tell whether it won a race
+// ("only bind if OPEN"). CLOSED is terminal: f is not called and the state
+// does not change.
+//
+// Other callers wait while f runs, so f must be quick and must not call
+// methods on the same State. If f panics the state is handed back unchanged.
+func (s *State) Transition(f func(current string) (next string)) (previous, next string) {
+	previous = <-s.token
+	next = previous
+	defer func() { s.token <- next }()
+	if previous != CLOSED {
+		next = f(previous)
 	}
-	go obj.stateDispatcher()
-	return &obj
+	return previous, next
 }
 
-func (state *State) stateDispatcher() {
-stateDispatcherLoop:
-	for {
-		select {
-		case msg2 := <-state.setState:
-			state.state = msg2
-		case state.reportState <- state.state:
-			continue
-		case <-state.done:
-			close(state.reportState)
-			break stateDispatcherLoop
-		}
-	}
+// GetState returns the current state.
+func (s *State) GetState() string {
+	_, current := s.Transition(func(current string) string { return current })
+	return current
 }
 
-func (state *State) GetState() string {
-	if state.controlLoopStillAlive() {
-		return <-state.reportState
-	}			
-	return CLOSED
-}
-
-func (state *State) SetState(desired_state string) {
-	state.setState <- desired_state
-}
-
-func (state *State) controlLoopStillAlive() bool {
-	_, ok := <-state.reportState
-	return ok
-}
-
-func (state *State) Close() {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	if state.controlLoopStillAlive() {
-		state.done <- true
-	}
+// SetState replaces the current state. It is ignored once the state is CLOSED.
+func (s *State) SetState(desired string) {
+	s.Transition(func(string) string { return desired })
 }

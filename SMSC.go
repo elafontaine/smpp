@@ -116,10 +116,7 @@ func (s *SMSC) Close() {
 		}
 	}
 	s.listeningSocket.Close()
-	if s.State.GetState() != CLOSED {
-		s.State.SetState(CLOSED)
-		s.State.done <- true
-	}
+	s.State.SetState(CLOSED)
 }
 
 func (s *SMSC) getEsmeFromChannel() <-chan *ESME {

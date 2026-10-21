@@ -152,7 +152,7 @@ func messageIdsGenerator() chan string {
 }
 
 func GetSmscAndConnectEsme(t *testing.T) (*SMSC, *ESME, net.Conn) {
-	smsc, err := GetSmscSimulatorServer()
+	smsc, err := GetSmscSimulatorServer() // this doesn't start the SMSC, hence why the manual accept
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
 	}
