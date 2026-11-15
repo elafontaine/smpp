@@ -12,9 +12,8 @@ var textCases = []struct {
 	text       string
 	wireHex    string
 }{
-	{"default alphabet (GSM 03.38), ASCII letters", DataCodingDefault, "hello", "68656c6c6f"},
-	{"default alphabet, characters away from their ASCII positions", DataCodingDefault, "@£$¥_", "0001020311"},
-	{"default alphabet, extension table characters are escaped", DataCodingDefault, "€[", "1b651b3c"},
+	{"default (UTF-8), ASCII letters", DataCodingDefault, "hello", "68656c6c6f"},
+	{"default (UTF-8), two Chinese characters", DataCodingDefault, "你好", "e4bda0e5a5bd"},
 	{"IA5 (ASCII)", DataCodingIA5, "hello", "68656c6c6f"},
 	{"Latin-1", DataCodingLatin1, "café", "636166e9"},
 	{"UCS-2, two Chinese characters", DataCodingUCS2, "你好", "4f60597d"},
@@ -62,7 +61,6 @@ func TestEncodeTextErrors(t *testing.T) {
 		text       string
 		wantErr    string
 	}{
-		{"Chinese in the default alphabet", DataCodingDefault, "你", "character '你' can't be encoded with data_coding 0"},
 		{"accent in IA5", DataCodingIA5, "é", "character 'é' can't be encoded with data_coding 1"},
 		{"Chinese in Latin-1", DataCodingLatin1, "你", "character '你' can't be encoded with data_coding 3"},
 		{"unsupported data_coding", 5, "x", "data_coding 5 isn't supported"},
@@ -87,9 +85,7 @@ func TestDecodeTextErrors(t *testing.T) {
 	}{
 		{"UCS-2 with an odd number of bytes", DataCodingUCS2, "4f6059", "UCS-2 text has an odd number of bytes (3)"},
 		{"IA5 byte above 0x7f", DataCodingIA5, "80", "byte 0x80 isn't valid with data_coding 1"},
-		{"default alphabet byte above 0x7f", DataCodingDefault, "80", "byte 0x80 isn't valid with data_coding 0"},
-		{"default alphabet escape at the end", DataCodingDefault, "411b", "escape (0x1b) without a following character"},
-		{"default alphabet unknown escape", DataCodingDefault, "1b41", "escape sequence 0x1b 0x41 isn't in the extension table"},
+		{"default (UTF-8) with an invalid sequence", DataCodingDefault, "e4bd", "bytes aren't valid UTF-8 (data_coding 0)"},
 		{"unsupported data_coding", 5, "41", "data_coding 5 isn't supported"},
 	}
 	for _, tt := range tests {
