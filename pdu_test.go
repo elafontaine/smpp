@@ -95,17 +95,17 @@ var deliverSmObjBody = Body{
 var submitSmRespObj = PDU{Header: submitSmRespObjHeader, Body: submitSmRespObjBody}
 var submitSmHelloObj = PDU{
 	Header: Header{CommandLength: 48, CommandId: "submit_sm", CommandStatus: ESME_ROK, SequenceNumber: 1},
-	Body:   submitSmBodyWith(map[string]interface{}{"destination_addr": "5555551234", "sm_length": 5, "short_message": "hello"}),
+	Body:   messageBodyWith(map[string]interface{}{"destination_addr": "5555551234", "sm_length": 5, "short_message": "hello"}),
 }
 
 var submitSmNihaoUcs2Obj = PDU{
 	Header: Header{CommandLength: 47, CommandId: "submit_sm", CommandStatus: ESME_ROK, SequenceNumber: 1},
-	Body:   submitSmBodyWith(map[string]interface{}{"destination_addr": "5555551234", "data_coding": 8, "sm_length": 4, "short_message": "你好"}),
+	Body:   messageBodyWith(map[string]interface{}{"destination_addr": "5555551234", "data_coding": 8, "sm_length": 4, "short_message": "你好"}),
 }
 
-// submitSmBodyWith returns a fresh default submit_sm body with some fields overridden.
-func submitSmBodyWith(fields map[string]interface{}) Body {
-	body := defaultSubmitSmBody()
+// messageBodyWith returns a fresh default message body (submit_sm, deliver_sm, data_sm) with some fields overridden.
+func messageBodyWith(fields map[string]interface{}) Body {
+	body := defaultMessageBody()
 	for name, value := range fields {
 		body.MandatoryParameter[name] = value
 	}

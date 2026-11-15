@@ -115,7 +115,7 @@ func TestNewBindReceiverResp(t *testing.T) {
 func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 	t.Parallel()
 	expectedSubmitSm := submitSmObj
-	expectedSubmitSm.Body = defaultSubmitSmBody()
+	expectedSubmitSm.Body = defaultMessageBody()
 	expectedSubmitSm.Body.MandatoryParameter["source_addr"] = "1234"
 	expectedSubmitSm.Body.MandatoryParameter["source_addr_ton"] = 2
 	expectedSubmitSm.Body.MandatoryParameter["source_addr_npi"] = 1
@@ -226,8 +226,8 @@ func TestEnquiryLinkResp(t *testing.T) {
 	})
 }
 
-// submit_sm, deliver_sm and data_sm share the same default body. It's written out here, not
-// taken from defaultSubmitSmBody(), so a changed default makes this test fail.
+// The message delivery PDUs (submit_sm, deliver_sm, data_sm) share one default body. It's written
+// out here, not taken from defaultMessageBody(), so a changed default makes this test fail.
 func TestSubmitSmFamilyDefaultValues(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
