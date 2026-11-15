@@ -358,7 +358,6 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
 		{"missingBodySubmitSMPduButWithServiceType raise mandatory fields are missings", args{missingBodySubmitSMPduButWithServiceType}, errors.New("source_addr_ton of submit_sm pdu missing, can't encode")},
 		{"missingHeader raise header missing error", args{missingHeaderPdu}, missingHeaderError},
-		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
 		{"missingBodyDeliverSMPdu raise mandatory fields are missings", args{missingBodyDeliverSMPdu}, errors.New("service_type of deliver_sm pdu missing, can't encode")},
 		{"integer too large for its field raise an error", args{NewSubmitSM().WithDataCoding(256)}, errors.New("data_coding of submit_sm pdu is 256, doesn't fit in 1 byte(s), can't encode")},
 		{"text not representable in its data_coding raise an error", args{NewSubmitSM().WithDataCoding(DataCodingIA5).WithMessage("你好")}, errors.New("short_message of submit_sm pdu: character '你' can't be encoded with data_coding 1, can't encode")},

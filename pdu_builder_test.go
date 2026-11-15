@@ -1,7 +1,7 @@
 package smpp
 
 import (
-	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -112,22 +112,6 @@ func TestNewBindReceiverResp(t *testing.T) {
 	})
 }
 
-func TestSubmitSMDefaultValues(t *testing.T) {
-	t.Parallel()
-	defaultSubmitSMObj := PDU{
-		Header: Header{
-			CommandLength:  0,
-			CommandId:      "submit_sm",
-			CommandStatus:  ESME_ROK,
-			SequenceNumber: 0,
-		},
-		Body: defaultSubmitSmBody(),
-	}
-	t.Run("Constructor pattern for submit_sm", func(t *testing.T) {
-		comparePdu(NewSubmitSM(), defaultSubmitSMObj, t)
-	})
-}
-
 func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 	t.Parallel()
 	expectedSubmitSm := submitSmObj
@@ -154,33 +138,6 @@ func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 
 	t.Run("Constructor pattern for binds", func(t *testing.T) {
 		comparePdu(actualSubmitSm, expectedSubmitSm, t)
-	})
-}
-
-func TestDeliverSmInstantiation(t *testing.T) {
-	t.Parallel()
-	expectedDeliverSM := deliverSmObj
-	expectedDeliverSM.Body = defaultSubmitSmBody()
-	expectedDeliverSM.Header.CommandLength = 0
-
-	actualDeliverSM := NewDeliverSM().WithSequenceNumber(1)
-
-	t.Run("Constructor Pattern for deliverSM ", func(t *testing.T) {
-		comparePdu(actualDeliverSM, expectedDeliverSM, t)
-	})
-}
-
-func TestDataSmInstantiation(t *testing.T) {
-	t.Parallel()
-	expectedDataSm := dataSmObj
-	expectedDataSm.Body = defaultSubmitSmBody()
-	expectedDataSm.Header.CommandLength = 0
-	expectedDataSm.Header.SequenceNumber = 0
-
-	actualDataSM := NewDataSM()
-
-	t.Run("Constructor Pattern for dataSM ", func(t *testing.T) {
-		comparePdu(actualDataSM, expectedDataSm, t)
 	})
 }
 
@@ -269,20 +226,79 @@ func TestEnquiryLinkResp(t *testing.T) {
 	})
 }
 
+// submit_sm, deliver_sm and data_sm share the same default body. It's written out here, not
+// taken from defaultSubmitSmBody(), so a changed default makes this test fail.
+func TestSubmitSmFamilyDefaultValues(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		builder       func() PDU
+		wantCommandId string
+	}{
+		{"submit_sm", NewSubmitSM, "submit_sm"},
+		{"deliver_sm", NewDeliverSM, "deliver_sm"},
+		{"data_sm", NewDataSM, "data_sm"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			want := PDU{
+				Header: Header{CommandLength: 0, CommandId: tt.wantCommandId, CommandStatus: ESME_ROK, SequenceNumber: 0},
+				Body: Body{
+					MandatoryParameter: map[string]interface{}{
+						"service_type":            "",
+						"source_addr_ton":         0,
+						"source_addr_npi":         0,
+						"source_addr":             "",
+						"dest_addr_ton":           0,
+						"dest_addr_npi":           0,
+						"destination_addr":        "",
+						"esm_class":               0,
+						"protocol_id":             0,
+						"priority_flag":           0,
+						"schedule_delivery_time":  "",
+						"validity_period":         "",
+						"registered_delivery":     0,
+						"replace_if_present_flag": 0,
+						"data_coding":             0,
+						"sm_default_msg_id":       0,
+						"sm_length":               0,
+						"short_message":           "",
+					},
+					OptionalParameters: nil,
+				},
+			}
+			comparePdu(tt.builder(), want, t)
+		})
+	}
+}
+
+// Each builder call must return its own parameter map: changing one PDU must not change
+// another one built earlier.
 func TestPDUObjectsShouldBeDifferentInMemoryToAvoidSharedObjects(t *testing.T) {
 	t.Parallel()
-	NotTheExpectedPdu := NewBindTransmitter().WithSystemId("SystemId").WithPassword("Password")
-	expectedBuf, err := EncodePdu(NotTheExpectedPdu)
-	if err != nil {
-		t.Errorf("Couldn't make a simple PDU...")
+	tests := []struct {
+		name    string
+		builder func() PDU
+	}{
+		{"bind_transmitter", NewBindTransmitter},
+		{"bind_transceiver", NewBindTransceiver},
+		{"bind_receiver", NewBindReceiver},
+		{"submit_sm", NewSubmitSM},
+		{"deliver_sm", NewDeliverSM},
+		{"data_sm", NewDataSM},
 	}
-	actualPdu := NewBindTransmitter().WithSystemId("SystemID2")
-	actualBuf, err := EncodePdu(actualPdu)
-	if err != nil {
-		t.Errorf("Couldn't make a simple PDU...")
-	}
-	if bytes.Equal(actualBuf, expectedBuf) {
-		t.Errorf("But PDUs are considered equal... something isn't working")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			first := tt.builder()
+			before := fmt.Sprint(first.Body.MandatoryParameter)
+
+			second := tt.builder()
+			second.Body.MandatoryParameter["changed_on_the_second_"+tt.name] = true
+
+			if after := fmt.Sprint(first.Body.MandatoryParameter); after != before {
+				t.Errorf("changing the second %s PDU changed the first one:\nbefore %s\nafter  %s", tt.name, before, after)
+			}
+		})
 	}
 }
 
