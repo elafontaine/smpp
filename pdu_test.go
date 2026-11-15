@@ -25,6 +25,13 @@ var submitSmHelloFixture, _ = hex.DecodeString(
 		"0000" + "3535353535353132333400" + // dest_addr_ton, dest_addr_npi, destination_addr "5555551234"
 		"000000" + "00" + "00" + // esm_class, protocol_id, priority_flag, schedule_delivery_time "", validity_period ""
 		"00000000" + "05" + "68656c6c6f") // registered_delivery, replace_if_present_flag, data_coding, sm_default_msg_id, sm_length 5, short_message "hello"
+var submitSmNihaoUcs2Fixture, _ = hex.DecodeString(
+	"0000002f000000040000000000000001" + // header: length 47, submit_sm, ESME_ROK, sequence 1
+		"00" + "0000" + "00" + // service_type "", source_addr_ton, source_addr_npi, source_addr ""
+		"0000" + "3535353535353132333400" + // dest_addr_ton, dest_addr_npi, destination_addr "5555551234"
+		"000000" + "00" + "00" + // esm_class, protocol_id, priority_flag, schedule_delivery_time "", validity_period ""
+		"00000800" + "04" + // registered_delivery, replace_if_present_flag, data_coding 8 (UCS-2), sm_default_msg_id, sm_length 4
+		"4f60597d") // short_message "你好": 2 characters, 2 bytes each in UCS-2
 
 var optionalParameterReceiptMessageIdBytes, _ = hex.DecodeString("001e0006313131303700")
 var optionalParameterMessageStateBytes, _ = hex.DecodeString("0427000102")
@@ -89,6 +96,11 @@ var submitSmRespObj = PDU{Header: submitSmRespObjHeader, Body: submitSmRespObjBo
 var submitSmHelloObj = PDU{
 	Header: Header{CommandLength: 48, CommandId: "submit_sm", CommandStatus: ESME_ROK, SequenceNumber: 1},
 	Body:   submitSmBodyWith(map[string]interface{}{"destination_addr": "5555551234", "sm_length": 5, "short_message": "hello"}),
+}
+
+var submitSmNihaoUcs2Obj = PDU{
+	Header: Header{CommandLength: 47, CommandId: "submit_sm", CommandStatus: ESME_ROK, SequenceNumber: 1},
+	Body:   submitSmBodyWith(map[string]interface{}{"destination_addr": "5555551234", "data_coding": 8, "sm_length": 4, "short_message": "你好"}),
 }
 
 // submitSmBodyWith returns a fresh default submit_sm body with some fields overridden.
@@ -211,6 +223,7 @@ func Test_parsePdu(t *testing.T) {
 		{"parse_submit_sm_resp", args{bytes: submitSmRespFixture}, submitSmRespObj},
 		{"parse_enquire_link", args{bytes: enquiryLinkFixture}, enquiryLinkObj},
 		{"parse_submit_sm_with_short_message", args{bytes: submitSmHelloFixture}, submitSmHelloObj},
+		{"parse_submit_sm_with_ucs2_short_message", args{bytes: submitSmNihaoUcs2Fixture}, submitSmNihaoUcs2Obj},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -266,7 +279,7 @@ func TestEncodePdu(t *testing.T) {
 		{"bind_transmitter object into bytes", args{pdu_obj: bindTransmitterObj}, bindTransmitterFixture},
 		{"bind_transmitter_resp object into bytes", args{pdu_obj: bindTransmitterRespObj}, bindTransmitterRespFixture},
 		{"deliver_sm object with optional parameter into bytes", args{pdu_obj: deliverSmObj}, deliverSmOptionsFixture},
-		{"submit_sm object with short_message into bytes", args{pdu_obj: submitSmHelloObj}, submitSmHelloFixture},
+		{"submit_sm object with UCS-2 short_message into bytes", args{pdu_obj: submitSmNihaoUcs2Obj}, submitSmNihaoUcs2Fixture},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -348,6 +361,7 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
 		{"missingBodyDeliverSMPdu raise mandatory fields are missings", args{missingBodyDeliverSMPdu}, errors.New("service_type of deliver_sm pdu missing, can't encode")},
 		{"integer too large for its field raise an error", args{NewSubmitSM().WithDataCoding(256)}, errors.New("data_coding of submit_sm pdu is 256, doesn't fit in 1 byte(s), can't encode")},
+		{"text not representable in its data_coding raise an error", args{NewSubmitSM().WithMessage("你好")}, errors.New("short_message of submit_sm pdu: character '你' can't be encoded with data_coding 0, can't encode")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -386,6 +400,43 @@ func TestEncodeShortMessageOf128BytesOrMore(t *testing.T) {
 				t.Errorf("decoded short_message has %d bytes, want %d", len(got.(string)), length)
 			}
 		})
+	}
+}
+
+// sm_length follows the encoded bytes, not the characters, nor the sm_length in the map.
+func TestEncodeComputesSmLengthFromEncodedText(t *testing.T) {
+	t.Parallel()
+	const smLengthOffset = 16 + 16 // header + the submit_sm fields before sm_length
+	pdu := NewSubmitSM().WithDataCoding(DataCodingUCS2).WithMessage("你好")
+	pdu.Body.MandatoryParameter["sm_length"] = 99
+
+	encoded, err := EncodePdu(pdu)
+	if err != nil {
+		t.Fatalf("EncodePdu() error = %v", err)
+	}
+	if got := encoded[smLengthOffset]; got != 4 {
+		t.Errorf("sm_length = %d, want 4 (2 UCS-2 characters)", got)
+	}
+}
+
+// A []byte short_message is sent as given, with the map's sm_length, so a peer can be
+// tested with an inconsistent PDU.
+func TestEncodeRawShortMessageKeepsGivenSmLength(t *testing.T) {
+	t.Parallel()
+	const smLengthOffset = 16 + 16
+	pdu := NewSubmitSM()
+	pdu.Body.MandatoryParameter["short_message"] = []byte{0xde, 0xad}
+	pdu.Body.MandatoryParameter["sm_length"] = 7
+
+	encoded, err := EncodePdu(pdu)
+	if err != nil {
+		t.Fatalf("EncodePdu() error = %v", err)
+	}
+	if got := encoded[smLengthOffset]; got != 7 {
+		t.Errorf("sm_length = %d, want 7 as given", got)
+	}
+	if got := encoded[smLengthOffset+1:]; !bytes.Equal(got, []byte{0xde, 0xad}) {
+		t.Errorf("short_message bytes = %x, want dead", got)
 	}
 }
 

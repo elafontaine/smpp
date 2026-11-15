@@ -94,7 +94,12 @@ func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]in
 			if numberRead != smLength {
 				log.Printf("Unable to read full PDU, failure not yet implemented")
 			}
-			mandatoryParameterMap[mandatory_params["name"].(string)] = string(shortMessage)
+			dataCoding, _ := mandatoryParameterMap["data_coding"].(int)
+			text, err := DecodeText(dataCoding, shortMessage)
+			if err != nil {
+				text = string(shortMessage) // undecodable: keep the raw bytes (decode errors aren't reported yet)
+			}
+			mandatoryParameterMap["short_message"] = text
 		}
 	}
 	return mandatoryParameterMap
@@ -154,8 +159,15 @@ func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) (opti
 }
 
 func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
+	shortMessage, smLength, err := encodeShortMessage(obj)
+	if err != nil {
+		return nil, err
+	}
 	for _, mandatoryParam := range mandatoryParameterLists[obj.Header.CommandId] {
 		value, ok := obj.Body.MandatoryParameter[mandatoryParam["name"].(string)]
+		if mandatoryParam["name"].(string) == "sm_length" {
+			value, ok = smLength, smLength != nil
+		}
 		if ok {
 			if mandatoryParam["type"].(string) == "string" {
 				fieldBytes := []byte(value.(string))
@@ -172,9 +184,7 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 			}
 
 			if mandatoryParam["type"].(string) == "xstring" {
-				// Written as given: the builders keep sm_length in step, but a caller may set
-				// a mismatching sm_length on purpose (e.g. to test how a peer reacts).
-				bodyBytes = append(bodyBytes, []byte(value.(string))...)
+				bodyBytes = append(bodyBytes, shortMessage...)
 			}
 		} else {
 			err = fmt.Errorf("%v of %v pdu missing, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId)
@@ -182,6 +192,29 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 		}
 	}
 	return
+}
+
+// encodeShortMessage returns short_message's bytes and the sm_length to send with them:
+//   - text (string) is encoded with the PDU's data_coding, and sm_length is the encoded size,
+//     whatever the map says;
+//   - a []byte is sent as given, with the map's sm_length, so a peer can be tested with an
+//     inconsistent PDU.
+func encodeShortMessage(obj PDU) (message []byte, smLength interface{}, err error) {
+	switch value := obj.Body.MandatoryParameter["short_message"].(type) {
+	case string:
+		if value == "" { // empty in every data_coding, even one EncodeText doesn't support
+			return nil, 0, nil
+		}
+		dataCoding, _ := obj.Body.MandatoryParameter["data_coding"].(int)
+		message, err = EncodeText(dataCoding, value)
+		if err != nil {
+			return nil, nil, fmt.Errorf("short_message of %v pdu: %w, can't encode", obj.Header.CommandId, err)
+		}
+		return message, len(message), nil
+	case []byte:
+		return value, obj.Body.MandatoryParameter["sm_length"], nil
+	}
+	return nil, obj.Body.MandatoryParameter["sm_length"], nil
 }
 
 // appendFixedWidthInteger appends value as a big-endian unsigned integer of width bytes,
