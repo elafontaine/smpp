@@ -12,7 +12,7 @@ func ParsePdu(bytes []byte) (pdu PDU, err error) {
 	if err != nil {
 		return
 	}
-	body, _ := parseBody(header, bytes)
+	body, err := parseBody(header, bytes)
 	pdu = PDU{Header: header, Body: body}
 	return
 }

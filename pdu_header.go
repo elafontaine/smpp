@@ -60,6 +60,9 @@ func extractCommandID(bytes []byte) (string, error) {
 func verifyLength(fixture []byte) (int, error) {
 	if len(fixture) > 3 {
 		pdu_length := int(binary.BigEndian.Uint32(fixture[0:4]))
+		if pdu_length < 16 {
+			return 0, fmt.Errorf("invalid command_length %d: shorter than the 16-byte header", pdu_length)
+		}
 		if len(fixture) < pdu_length {
 			return 0, fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(fixture))
 		}

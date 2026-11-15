@@ -1,13 +1,11 @@
 package smpp
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 )
 type Error string
 func (e Error) Error() string {
@@ -25,84 +23,138 @@ type Body struct {
 }
 
 // Decoding Function (only ParsePdu should be public)
+
+// parseBody decodes the body. On malformed input it returns an error, never panics, along with
+// whatever it decoded before the problem.
 func parseBody(header Header, pdu_bytes []byte) (body Body, err error) {
-	r := bytes.NewReader(pdu_bytes[16:header.CommandLength])
-	scan := bufio.NewReader(r)
+	data := pdu_bytes[16:header.CommandLength]
 	body = Body{MandatoryParameter: map[string]interface{}{}}
-	body.MandatoryParameter = extractMandatoryParameters(header, scan)
-	optionalParameterBytes := make([]byte, scan.Buffered())
-	bytesLeft, err := io.ReadFull(scan, optionalParameterBytes)
-	if bytesLeft > 0 {
-		body.OptionalParameters = extractOptionalParameters(optionalParameterBytes)
+	if len(data) == 0 {
+		return body, nil // e.g. a response with a non-zero command_status: SMPP lets it omit the body
+	}
+	r := bytes.NewReader(data)
+	body.MandatoryParameter, err = extractMandatoryParameters(header, r)
+	if err != nil {
+		return body, err
+	}
+	if rest := data[len(data)-r.Len():]; len(rest) > 0 {
+		body.OptionalParameters, err = extractOptionalParameters(rest)
 	}
 	return body, err
 }
 
-func extractOptionalParameters(optionalParameterBytes []byte) (params []map[string]interface{}) {
-	for i := 0; i < len(optionalParameterBytes); i++ {
-		param, _ := extractSpecificOptionalParameter(optionalParameterBytes[i:])
-		params = append(params, param)
-		i += incrementBasedOnTlv(param)
-	}
-	return params
-}
-
-func incrementBasedOnTlv(param map[string]interface{}) int {
-	return 2 + 2 + param["length"].(int) - 1 // tag (2) + length  (2) + value (value of length) - 1 (as we have post-increments)
-}
-
-func extractSpecificOptionalParameter(parameterBytes []byte) (nbOfBytes map[string]interface{}, err error) {
-	identityTag := optionalParameterTagByHex[hex.EncodeToString(parameterBytes[0:2])]
-	tag := identityTag["name"]
-	length := int(binary.BigEndian.Uint16(parameterBytes[2:4]))
-	var value interface{}
-	if identityTag["type"] == "string" {
-		lastBytePosition := length + 4
-		lastByteIsNulByte := byte(0) == parameterBytes[lastBytePosition-1]
-		if lastByteIsNulByte {
-			value = string(parameterBytes[4 : lastBytePosition-1])
-		} else {
-			value = string(parameterBytes[4:lastBytePosition])
+func extractOptionalParameters(optionalParameterBytes []byte) (params []map[string]interface{}, err error) {
+	rest := optionalParameterBytes
+	for len(rest) > 0 {
+		var param map[string]interface{}
+		param, err = extractSpecificOptionalParameter(rest)
+		if err != nil {
+			return params, err
 		}
+		params = append(params, param)
+		rest = rest[4+param["length"].(int):] // tag (2) + length (2) + value
 	}
-	if identityTag["type"] == "integer" {
-		value = int(parameterBytes[4])
+	return params, nil
+}
+
+// extractSpecificOptionalParameter decodes the TLV at the start of parameterBytes. A tag missing
+// from the table is kept as raw bytes under its hex code (e.g. "0x1405").
+func extractSpecificOptionalParameter(parameterBytes []byte) (map[string]interface{}, error) {
+	if len(parameterBytes) < 4 {
+		return nil, fmt.Errorf("optional parameters: %d bytes left, a TLV needs at least 4", len(parameterBytes))
+	}
+	tagHex := hex.EncodeToString(parameterBytes[0:2])
+	definition := optionalParameterTagByHex[tagHex]
+	tag := "0x" + tagHex
+	if name, ok := definition["name"].(string); ok {
+		tag = name
+	}
+	length := int(binary.BigEndian.Uint16(parameterBytes[2:4]))
+	if length > len(parameterBytes)-4 {
+		return nil, fmt.Errorf("optional parameter %s: length %d but only %d bytes are left", tag, length, len(parameterBytes)-4)
+	}
+	raw := parameterBytes[4 : 4+length]
+	var value interface{}
+	switch definition["type"] {
+	case "string":
+		value = string(bytes.TrimSuffix(raw, []byte{0}))
+	case "integer":
+		if length != 1 && length != 2 && length != 4 {
+			return nil, fmt.Errorf("optional parameter %s: integer of %d bytes isn't supported", tag, length)
+		}
+		value = readFixedWidthInteger(raw)
+	default: // octet strings (message_payload...), bitmasks, tags unknown to the table
+		value = string(raw)
 	}
 	return map[string]interface{}{
 		"tag":    tag,
 		"length": length,
 		"value":  value,
-	}, err
+	}, nil
 }
 
-func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]interface{} {
+func extractMandatoryParameters(header Header, r *bytes.Reader) (map[string]interface{}, error) {
 	mandatoryParameterMap := map[string]interface{}{}
 	for _, mandatory_params := range mandatoryParameterLists[header.CommandId] {
-
-		if mandatory_params["type"].(string) == "string" {
-			currentBytes, _ := scan.ReadBytes(0)
-			mandatoryParameterMap[mandatory_params["name"].(string)] = string(currentBytes[:len(currentBytes)-1])
+		name := mandatory_params["name"].(string)
+		fail := func(format string, a ...interface{}) error {
+			return fmt.Errorf("%s of %s pdu: %s", name, header.CommandId, fmt.Sprintf(format, a...))
 		}
-		if mandatory_params["type"].(string) == "integer" || mandatory_params["type"].(string) == "hex" {
-			currentBytes, _ := scan.ReadByte()
-			mandatoryParameterMap[mandatory_params["name"].(string)] = int(currentBytes)
-		}
-		if mandatory_params["type"].(string) == "xstring" {
-			smLength := mandatoryParameterMap["sm_length"].(int)
-			shortMessage := make([]byte, smLength)
-			numberRead, _ := io.ReadFull(scan, shortMessage)
-			if numberRead != smLength {
-				log.Printf("Unable to read full PDU, failure not yet implemented")
+		switch mandatory_params["type"].(string) {
+		case "string":
+			if r.Len() == 0 {
+				return mandatoryParameterMap, fail("missing, the body ends early")
 			}
+			value, err := readCString(r)
+			if err != nil {
+				return mandatoryParameterMap, fail("missing NUL terminator")
+			}
+			mandatoryParameterMap[name] = value
+		case "integer", "hex":
+			raw := make([]byte, mandatory_params["max"].(int))
+			if _, err := io.ReadFull(r, raw); err != nil {
+				return mandatoryParameterMap, fail("missing, the body ends early")
+			}
+			mandatoryParameterMap[name] = readFixedWidthInteger(raw)
+		case "xstring": // short_message, the only field whose length is another field (sm_length)
+			smLength, _ := mandatoryParameterMap["sm_length"].(int)
+			if smLength > r.Len() {
+				return mandatoryParameterMap, fail("sm_length is %d but only %d bytes are left", smLength, r.Len())
+			}
+			shortMessage := make([]byte, smLength)
+			_, _ = io.ReadFull(r, shortMessage) // can't fail: smLength <= r.Len()
 			dataCoding, _ := mandatoryParameterMap["data_coding"].(int)
 			text, err := DecodeText(dataCoding, shortMessage)
 			if err != nil {
-				text = string(shortMessage) // undecodable: keep the raw bytes (decode errors aren't reported yet)
+				text = string(shortMessage) // undecodable text: keep the raw bytes
 			}
 			mandatoryParameterMap["short_message"] = text
 		}
 	}
-	return mandatoryParameterMap
+	return mandatoryParameterMap, nil
+}
+
+// readCString reads up to and including a NUL byte, and returns what came before it.
+func readCString(r *bytes.Reader) (string, error) {
+	var out []byte
+	for {
+		c, err := r.ReadByte()
+		if err != nil {
+			return "", err
+		}
+		if c == 0 {
+			return string(out), nil
+		}
+		out = append(out, c)
+	}
+}
+
+// readFixedWidthInteger reads a big-endian unsigned integer (1, 2 or 4 bytes in SMPP).
+func readFixedWidthInteger(raw []byte) (value int) {
+	for _, c := range raw {
+		value = value<<8 | int(c)
+	}
+	return value
 }
 
 // Encoding functions, only EncodePdu should be public
@@ -114,48 +166,77 @@ func encodeBody(obj PDU) (bodyBytes []byte, err error) {
 	var optionalParamsBytes []byte
 
 	mandatoryParamsBytes, err = encodeMandatoryParameters(obj)
+	if err != nil {
+		return nil, err
+	}
 	bodyBytes = append(bodyBytes, mandatoryParamsBytes...)
 
 	if len(obj.Body.OptionalParameters) > 0 {
 		optionalParamsBytes, err = encodeOptionalParameters(obj)
+		if err != nil {
+			return nil, err
+		}
 		bodyBytes = append(bodyBytes, optionalParamsBytes...)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return bodyBytes, err
+	return bodyBytes, nil
 }
 
 func encodeOptionalParameters(obj PDU) (optionalParamsBytes []byte, err error) {
 	for _, optionalParam := range obj.Body.OptionalParameters {
-		specificOptionalParamsBytes, _ := encodeSpecificOptionalParameter(optionalParam)
+		var specificOptionalParamsBytes []byte
+		specificOptionalParamsBytes, err = encodeSpecificOptionalParameter(optionalParam)
+		if err != nil {
+			return nil, err
+		}
 		optionalParamsBytes = append(optionalParamsBytes, specificOptionalParamsBytes...)
-
 	}
-	return optionalParamsBytes, err
+	return optionalParamsBytes, nil
 }
 
-func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) (optionalParamsBytes []byte, err error) {
-	parameterDefinitions := optionalParameterTagByName[optionalParam["tag"].(string)]
-	var tag []byte
-	tag, err = hex.DecodeString(parameterDefinitions["hex"].(string))
-	lengthBuffer := make([]byte, 2)
-	if parameterDefinitions["type"] == "integer" || parameterDefinitions["type"] == "hex" {
-		integerByte := byte(int64(optionalParam["value"].(int)))
-		binary.BigEndian.PutUint16(lengthBuffer, uint16(1))
-		optionalParamsBytes = append(optionalParamsBytes, tag...)
-		optionalParamsBytes = append(optionalParamsBytes, lengthBuffer...)
-		optionalParamsBytes = append(optionalParamsBytes, integerByte)
+// encodeSpecificOptionalParameter encodes one TLV. The value decides the format:
+//   - int: a big-endian integer, as wide as the table says (1 byte when it doesn't say);
+//   - string: text, NUL-terminated when the table says the TLV is a string;
+//   - []byte: sent as given.
+func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) ([]byte, error) {
+	name, _ := optionalParam["tag"].(string)
+	definition, ok := optionalParameterTagByName[name]
+	if !ok {
+		return nil, fmt.Errorf("unknown optional parameter %v, can't encode", optionalParam["tag"])
+	}
+	tag, err := hex.DecodeString(definition["hex"].(string))
+	if err != nil {
+		return nil, err
+	}
+	var value []byte
+	switch v := optionalParam["value"].(type) {
+	case int:
+		value, err = appendFixedWidthInteger(nil, v, optionalParameterIntegerWidth(definition["hex"].(string)))
+		if err != nil {
+			return nil, fmt.Errorf("optional parameter %s is %d, %w, can't encode", name, v, err)
+		}
+	case string:
+		value = []byte(v)
+		if definition["type"] == "string" {
+			value = append(value, 0)
+		}
+	case []byte:
+		value = v
+	default:
+		return nil, fmt.Errorf("optional parameter %s: a value of type %T can't be encoded", name, v)
+	}
+	if len(value) > 0xffff {
+		return nil, fmt.Errorf("optional parameter %s: %d bytes, more than a TLV can hold", name, len(value))
+	}
+	out := append(tag, byte(len(value)>>8), byte(len(value)))
+	return append(out, value...), nil
+}
 
+// optionalParameterIntegerWidth gives an integer TLV's size: the table's "min", or 1 byte.
+func optionalParameterIntegerWidth(tagHex string) int {
+	if width, ok := optionalParameterTagByHex[tagHex]["min"].(int); ok {
+		return width
 	}
-	if parameterDefinitions["type"] == "string" {
-		fieldBytes := []byte(optionalParam["value"].(string))
-		binary.BigEndian.PutUint16(lengthBuffer, uint16(len(fieldBytes)+1))
-		optionalParamsBytes = append(optionalParamsBytes, tag...)
-		optionalParamsBytes = append(optionalParamsBytes, lengthBuffer...)
-		optionalParamsBytes = append(optionalParamsBytes, append(fieldBytes, 0)...)
-	}
-	return optionalParamsBytes, err
+	return 1
 }
 
 func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {

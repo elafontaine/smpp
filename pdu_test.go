@@ -251,6 +251,7 @@ func Test_parseHeaderInvalidPdu(t *testing.T) {
 		{"InvalidCommandId", args{bytes: invalidCommandId}, errors.New("unknown command_id 00001115")},
 		{"InvalidPdu", args{bytes: invalidPduLength}, errors.New("invalid PDU Length for pdu : 0000001000")},
 		{"Unknown status ID received", args{bytes: invalidStatusId}, errors.New("unknown command status 008000ff")},
+		{"command_length shorter than the header", args{bytes: mustHex("0000000800000015")}, errors.New("invalid command_length 8: shorter than the 16-byte header")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -307,6 +308,11 @@ func Test_encodeSpecificOptionalParameter(t *testing.T) {
 		{"Encode message state optional parameter", args{optionalParam: optionalMessageState}, optionalParameterMessageStateBytes, false},
 		{"Encode delivery failure reason optional parameter", args{optionalParam: optionalDeliveryFailureReason}, optionalParameterDeliveryFailureReasonBytes, false},
 		{"Encode receipt message ID optional parameter", args{optionalParam: optionalReceiptMessageID}, optionalParameterReceiptMessageIdBytes, false},
+		{"Encode a 2-byte integer (sar_msg_ref_num)", args{optionalParam: map[string]interface{}{"tag": "sar_msg_ref_num", "value": 0x1234}}, mustHex("020c00021234"), false},
+		{"Encode a 4-byte integer (qos_time_to_live)", args{optionalParam: map[string]interface{}{"tag": "qos_time_to_live", "value": 0x01020304}}, mustHex("0017000401020304"), false},
+		{"Encode an octet string (message_payload)", args{optionalParam: map[string]interface{}{"tag": "message_payload", "value": "hi"}}, mustHex("042400026869"), false},
+		{"Integer too large for its 1 byte", args{optionalParam: map[string]interface{}{"tag": "sar_total_segments", "value": 256}}, nil, true},
+		{"Unknown optional parameter", args{optionalParam: map[string]interface{}{"tag": "no_such_tlv", "value": 1}}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -335,6 +341,9 @@ func Test_extractOptionalParameters(t *testing.T) {
 		{"Decode message state", args{optionalParameterBytes: optionalParameterMessageStateBytes}, optionalMessageState},
 		{"Decode ReceiptMessageId", args{optionalParameterBytes: optionalParameterReceiptMessageIdBytes}, optionalReceiptMessageID},
 		{"Decode DeliveryFailureReason", args{optionalParameterBytes: optionalParameterDeliveryFailureReasonBytes}, optionalDeliveryFailureReason},
+		{"Decode a 2-byte integer (sar_msg_ref_num)", args{optionalParameterBytes: mustHex("020c00021234")}, map[string]interface{}{"tag": "sar_msg_ref_num", "length": 2, "value": 0x1234}},
+		{"Decode a 4-byte integer (qos_time_to_live)", args{optionalParameterBytes: mustHex("0017000401020304")}, map[string]interface{}{"tag": "qos_time_to_live", "length": 4, "value": 0x01020304}},
+		{"Decode an octet string (message_payload)", args{optionalParameterBytes: mustHex("042400026869")}, map[string]interface{}{"tag": "message_payload", "length": 2, "value": "hi"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -513,4 +522,12 @@ func TestPduReader(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustHex(s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
