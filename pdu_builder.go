@@ -239,8 +239,10 @@ func (p PDU) WithDataCoding(i int) PDU {
 	return p
 }
 
+// WithMessage sets short_message and keeps sm_length in step with it.
 func (p PDU) WithMessage(s string) PDU {
 	p.Body.MandatoryParameter["short_message"] = s
+	p.Body.MandatoryParameter["sm_length"] = len(s)
 	return p
 }
 

@@ -163,9 +163,18 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 			}
 
 			if mandatoryParam["type"].(string) == "integer" || mandatoryParam["type"].(string) == "hex" {
-				integerBuffer := make([]byte, mandatoryParam["max"].(int))
-				binary.PutUvarint(integerBuffer, uint64(obj.Body.MandatoryParameter[mandatoryParam["name"].(string)].(int)))
-				bodyBytes = append(bodyBytes, integerBuffer...)
+				width := mandatoryParam["max"].(int)
+				bodyBytes, err = appendFixedWidthInteger(bodyBytes, value.(int), width)
+				if err != nil {
+					err = fmt.Errorf("%v of %v pdu is %v, %w, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId, value, err)
+					return
+				}
+			}
+
+			if mandatoryParam["type"].(string) == "xstring" {
+				// Written as given: the builders keep sm_length in step, but a caller may set
+				// a mismatching sm_length on purpose (e.g. to test how a peer reacts).
+				bodyBytes = append(bodyBytes, []byte(value.(string))...)
 			}
 		} else {
 			err = fmt.Errorf("%v of %v pdu missing, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId)
@@ -173,4 +182,21 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 		}
 	}
 	return
+}
+
+// appendFixedWidthInteger appends value as a big-endian unsigned integer of width bytes,
+// the way SMPP encodes its integer fields.
+func appendFixedWidthInteger(buf []byte, value int, width int) ([]byte, error) {
+	if value < 0 || (width < 8 && value >= 1<<(8*width)) {
+		return buf, fmt.Errorf("doesn't fit in %d byte(s)", width)
+	}
+	switch width {
+	case 1:
+		return append(buf, byte(value)), nil
+	case 2:
+		return binary.BigEndian.AppendUint16(buf, uint16(value)), nil
+	case 4:
+		return binary.BigEndian.AppendUint32(buf, uint32(value)), nil
+	}
+	return buf, fmt.Errorf("unsupported integer width %d", width)
 }

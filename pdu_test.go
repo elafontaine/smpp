@@ -19,6 +19,12 @@ var bindTransmitterFixture, _ = hex.DecodeString("0000001f0000000200000000000000
 var bindTransmitterRespFixture, _ = hex.DecodeString("000000158000000200000000000000007465737400")
 var submitSmRespFixture, _ = hex.DecodeString("000000128000000400000000000000033100")
 var deliverSmOptionsFixture, _ = hex.DecodeString("0000003f000000050000000000000001000000000000353535353535313233340004000000000000000000001e000631313130370004270001020425000100")
+var submitSmHelloFixture, _ = hex.DecodeString(
+	"00000030000000040000000000000001" + // header: length 48, submit_sm, ESME_ROK, sequence 1
+		"00" + "0000" + "00" + // service_type "", source_addr_ton, source_addr_npi, source_addr ""
+		"0000" + "3535353535353132333400" + // dest_addr_ton, dest_addr_npi, destination_addr "5555551234"
+		"000000" + "00" + "00" + // esm_class, protocol_id, priority_flag, schedule_delivery_time "", validity_period ""
+		"00000000" + "05" + "68656c6c6f") // registered_delivery, replace_if_present_flag, data_coding, sm_default_msg_id, sm_length 5, short_message "hello"
 
 var optionalParameterReceiptMessageIdBytes, _ = hex.DecodeString("001e0006313131303700")
 var optionalParameterMessageStateBytes, _ = hex.DecodeString("0427000102")
@@ -80,6 +86,20 @@ var deliverSmObjBody = Body{
 	},
 }
 var submitSmRespObj = PDU{Header: submitSmRespObjHeader, Body: submitSmRespObjBody}
+var submitSmHelloObj = PDU{
+	Header: Header{CommandLength: 48, CommandId: "submit_sm", CommandStatus: ESME_ROK, SequenceNumber: 1},
+	Body:   submitSmBodyWith(map[string]interface{}{"destination_addr": "5555551234", "sm_length": 5, "short_message": "hello"}),
+}
+
+// submitSmBodyWith returns a fresh default submit_sm body with some fields overridden.
+func submitSmBodyWith(fields map[string]interface{}) Body {
+	body := defaultSubmitSmBody()
+	for name, value := range fields {
+		body.MandatoryParameter[name] = value
+	}
+	return body
+}
+
 var deliverSmRespObj = PDU{Header: deliverSmRespObjHeader, Body: submitSmRespObjBody}
 var deliverSmObj = PDU{Header: deliverSmObjHeader, Body: deliverSmObjBody}
 var dataSmObj = PDU{Header: dataSmObjHeader, Body: deliverSmObjBody}
@@ -190,6 +210,7 @@ func Test_parsePdu(t *testing.T) {
 		{"parse_bind_transmitter", args{bytes: bindTransmitterFixture}, bindTransmitterObj},
 		{"parse_submit_sm_resp", args{bytes: submitSmRespFixture}, submitSmRespObj},
 		{"parse_enquire_link", args{bytes: enquiryLinkFixture}, enquiryLinkObj},
+		{"parse_submit_sm_with_short_message", args{bytes: submitSmHelloFixture}, submitSmHelloObj},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -245,6 +266,7 @@ func TestEncodePdu(t *testing.T) {
 		{"bind_transmitter object into bytes", args{pdu_obj: bindTransmitterObj}, bindTransmitterFixture},
 		{"bind_transmitter_resp object into bytes", args{pdu_obj: bindTransmitterRespObj}, bindTransmitterRespFixture},
 		{"deliver_sm object with optional parameter into bytes", args{pdu_obj: deliverSmObj}, deliverSmOptionsFixture},
+		{"submit_sm object with short_message into bytes", args{pdu_obj: submitSmHelloObj}, submitSmHelloFixture},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -325,6 +347,7 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 		{"missingHeader raise header missing error", args{missingHeaderPdu}, missingHeaderError},
 		{"missingBodySubmitSMPdu raise mandatory fields are missings", args{missingBodySubmitSMPdu}, errors.New("service_type of submit_sm pdu missing, can't encode")},
 		{"missingBodyDeliverSMPdu raise mandatory fields are missings", args{missingBodyDeliverSMPdu}, errors.New("service_type of deliver_sm pdu missing, can't encode")},
+		{"integer too large for its field raise an error", args{NewSubmitSM().WithDataCoding(256)}, errors.New("data_coding of submit_sm pdu is 256, doesn't fit in 1 byte(s), can't encode")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -332,6 +355,35 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 			if err.Error() != tt.wantErr.Error() {
 				t.Errorf("EncodePdu() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+		})
+	}
+}
+
+// SMPP integers are fixed-width big-endian: 128 and above must still take a single byte for sm_length.
+func TestEncodeShortMessageOf128BytesOrMore(t *testing.T) {
+	t.Parallel()
+	for _, length := range []int{127, 128, 200, 254} {
+		t.Run(fmt.Sprintf("short_message of %d bytes", length), func(t *testing.T) {
+			message := string(bytes.Repeat([]byte("a"), length))
+			pdu := NewSubmitSM().WithMessage(message).WithSequenceNumber(1)
+
+			encoded, err := EncodePdu(pdu)
+			if err != nil {
+				t.Fatalf("EncodePdu() error = %v", err)
+			}
+			if want := 16 + 17 + length; len(encoded) != want {
+				t.Fatalf("EncodePdu() gave %d bytes, want %d", len(encoded), want)
+			}
+			decoded, err := ParsePdu(encoded)
+			if err != nil {
+				t.Fatalf("ParsePdu() error = %v", err)
+			}
+			if got := decoded.Body.MandatoryParameter["sm_length"]; got != length {
+				t.Errorf("decoded sm_length = %v, want %d", got, length)
+			}
+			if got := decoded.Body.MandatoryParameter["short_message"]; got != message {
+				t.Errorf("decoded short_message has %d bytes, want %d", len(got.(string)), length)
 			}
 		})
 	}

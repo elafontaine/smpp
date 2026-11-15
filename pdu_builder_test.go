@@ -140,6 +140,7 @@ func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
 	expectedSubmitSm.Body.MandatoryParameter["dest_addr_npi"] = 1
 	expectedSubmitSm.Body.MandatoryParameter["data_coding"] = 8
 	expectedSubmitSm.Body.MandatoryParameter["short_message"] = "Hello"
+	expectedSubmitSm.Body.MandatoryParameter["sm_length"] = 5
 	expectedSubmitSm.Header.CommandLength = 0
 
 	actualSubmitSm := NewSubmitSM().
