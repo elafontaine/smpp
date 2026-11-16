@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net"
 	"sync/atomic"
-	"time"
 )
 
 const (
@@ -55,14 +54,14 @@ func (smsc *SMSC) acceptNewConnectionFromSMSC() (*ESME, error) {
 }
 
 func (s *SMSC) smscControlLoop() {
-	for s.State.GetState() != CLOSED {
+	for {
 		select {
 		case serverConnectionSocket := <-s.NewConnChan:
 			s.createAndAppendNewEsme(serverConnectionSocket)
 		case e := <-s.RemoveEsmeChan:
 			s._closeAndRemoveEsme(e)
-		default:
-			time.Sleep(0)
+		case <-s.State.Done():
+			return
 		}
 	}
 }
@@ -82,9 +81,15 @@ func appendNewEsmeToSMSC(smsc *SMSC, e *ESME) {
 	smsc.ESMEs.Store(new_connections)
 }
 
+// closeAndRemoveEsme has the control loop close e and drop it from the list. Once the SMSC is
+// closed there's no loop and no list left: e is just closed.
 func (s *SMSC) closeAndRemoveEsme(e *ESME) {
-	s.RemoveEsmeChan <- e
-	<-s.RemoveDoneChan
+	select {
+	case s.RemoveEsmeChan <- e:
+		<-s.RemoveDoneChan
+	case <-s.State.Done():
+		e.Close()
+	}
 }
 
 func (s *SMSC) _closeAndRemoveEsme(e *ESME) {

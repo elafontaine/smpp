@@ -37,6 +37,7 @@ type ESME struct {
 	state            *State
 	sequenceNumber   int32
 	CommandFunctions map[string]func(*ESME, PDU) error
+	WindowSize       int // most requests handled at once; 0: no limit. Set it before the loop starts.
 	defaults         map[string]interface{}
 	wg               sync.WaitGroup
 	startOnce        sync.Once
@@ -336,9 +337,14 @@ func (e *ESME) StartControlLoop() {
 	})
 }
 
-// pduDispatcher is the only reader of the connection.
+// pduDispatcher is the only reader of the connection. Each request runs its handler in its own
+// goroutine; once WindowSize handlers are running, it stops reading until one of them finishes.
 func (e *ESME) pduDispatcher() {
 	defer e.wg.Done()
+	var window chan struct{}
+	if e.WindowSize > 0 {
+		window = make(chan struct{}, e.WindowSize)
+	}
 	for {
 		raw, err := readPduBytesFromConnection(e.clientSocket, time.Time{})
 		if err != nil { // connection gone, or PDU boundaries lost: nothing more can be read reliably
@@ -354,9 +360,19 @@ func (e *ESME) pduDispatcher() {
 			continue
 		}
 		if handler, ok := e.CommandFunctions[pdu.Header.CommandId]; ok {
-			if err := handler(e, pdu); err != nil {
-				ErrorSmppLogger.Printf("Error handling %s PDU: %v", pdu.Header.CommandId, err)
+			if window != nil {
+				window <- struct{}{} // waits while the window is full
 			}
+			e.wg.Add(1) // Close waits for running handlers too
+			go func() {
+				defer e.wg.Done()
+				if window != nil {
+					defer func() { <-window }()
+				}
+				if err := handler(e, pdu); err != nil {
+					ErrorSmppLogger.Printf("Error handling %s PDU: %v", pdu.Header.CommandId, err)
+				}
+			}()
 		}
 	}
 }
