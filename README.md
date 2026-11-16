@@ -84,11 +84,29 @@ clientSocket, err := net.Dial("tcp", serverAddress.String())
 e:= NewEsme(clientSocket)
 
 ```
-The `ESME` object has some convenience functions at the moment and *but is currently underwork and it may changes*... 
-I know that I want people to be able to ask for "one ESME, please!" and be able to provide the framework 
-for handling the SMPP exchange protocol value through the golang channels.  So the ESME will probably evolve 
-into a mechanics of passing PDU objects or bytes through a channel (probably bytes as there is no validation
-on PDU objects themselves, and I want the user to receive the error, not the internals of the ESME).
+Once connected, an `ESME` sends requests in two ways:
+
+```
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+// Synchronous: waits for the matching response (or until ctx ends).
+resp, err := e.Send(ctx, NewSubmitSM().WithDestinationAddress("5551234567").WithMessage("Hello"))
+
+// Asynchronous: returns once the PDU is written. A PDU that can't be encoded fails right
+// here, to the caller that built it; the channel then delivers the response.
+responses, err := e.SendAsync(NewEnquireLink())
+r := <-responses // r.PDU is the response, or r.Err says why none will come (e.g. net.ErrClosed)
+```
+
+Responses are matched to requests by `sequence_number`, so several requests can be in flight at
+once. The ESME reads its connection from a single loop: `Send` and `SendAsync` start it, or
+`StartControlLoop()` does once your `CommandFunctions` are registered. Handlers answer the
+requests they receive with `e.Reply(responsePdu)`, which keeps the response's `sequence_number`.
+
+`short_message` text is encoded according to `data_coding` (`DataCodingUCS2`, `DataCodingLatin1`,
+...); `data_coding` 0 means UTF-8. `EncodeText` and `DecodeText` do the same conversion on their
+own.
 
 The `SMSC` object is currently not made for production use and instantiate ESMEs for each connection.  There is some
 logic at the moment for dispatching messages, but it would probably be using the same as the ESME when they're ready.
