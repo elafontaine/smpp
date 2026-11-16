@@ -104,6 +104,11 @@ once. The ESME reads its connection from a single loop: `Send` and `SendAsync` s
 `StartControlLoop()` does once your `CommandFunctions` are registered. Handlers answer the
 requests they receive with `e.Reply(responsePdu)`, which keeps the response's `sequence_number`.
 
+Each received request runs its handler in its own goroutine, so a slow handler doesn't hold up
+the connection, and a handler can itself `Send` and wait. Set `e.WindowSize` (before the loop
+starts) to cap how many run at once: when the window is full, the ESME stops reading until a
+handler finishes. `Close` waits for running handlers, so a handler must not block forever.
+
 `short_message` text is encoded according to `data_coding` (`DataCodingUCS2`, `DataCodingLatin1`,
 ...); `data_coding` 0 means UTF-8. `EncodeText` and `DecodeText` do the same conversion on their
 own.

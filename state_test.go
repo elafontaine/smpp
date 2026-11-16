@@ -109,3 +109,22 @@ func TestStateIsHandedBackWhenTheCallbackPanics(t *testing.T) {
 		t.Fatal("the state was lost when the callback panicked")
 	}
 }
+
+// Done lets a select wait for CLOSED instead of polling GetState.
+func TestDoneIsClosedWhenTheStateBecomesClosed(t *testing.T) {
+	s := NewESMEState(OPEN)
+	s.SetState(BOUND_TX)
+	select {
+	case <-s.Done():
+		t.Fatal("Done() closed before the state became CLOSED")
+	default:
+	}
+
+	s.SetState(CLOSED)
+	select {
+	case <-s.Done():
+	case <-time.After(time.Second):
+		t.Fatal("Done() not closed after the state became CLOSED")
+	}
+	s.SetState(CLOSED) // again: must not close Done twice (that would panic)
+}

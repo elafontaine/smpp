@@ -8,11 +8,12 @@ package smpp
 // a read-decide-write sequence is atomic. There is no goroutine to start or
 // stop: the buffered channel itself is the generator.
 type State struct {
-	token chan string // holds the state; empty while a Transition is running
+	token chan string   // holds the state; empty while a Transition is running
+	done  chan struct{} // closed when the state becomes CLOSED
 }
 
 func NewESMEState(state string) *State {
-	s := &State{token: make(chan string, 1)}
+	s := &State{token: make(chan string, 1), done: make(chan struct{})}
 	s.token <- state
 	return s
 }
@@ -30,8 +31,17 @@ func (s *State) Transition(f func(current string) (next string)) (previous, next
 	defer func() { s.token <- next }()
 	if previous != CLOSED {
 		next = f(previous)
+		if next == CLOSED {
+			close(s.done)
+		}
 	}
 	return previous, next
+}
+
+// Done returns a channel that's closed once the state becomes CLOSED, so a select can wait
+// for it.
+func (s *State) Done() <-chan struct{} {
+	return s.done
 }
 
 // GetState returns the current state.
