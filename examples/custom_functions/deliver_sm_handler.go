@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -60,12 +61,17 @@ func step1(server_smpp_conn_obj *ESME) {
 	WithDataCoding(3).
 	WithMessage("Hello, how are you today ?").
 	WithSourceAddress("5557654321")
-	_, err := server_smpp_conn_obj.Send(&deliverSM)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	resp, err := server_smpp_conn_obj.Send(ctx, deliverSM) // steps 1 to 4: returns with the answer
 	if err != nil {
 		fmt.Print(fmt.Errorf("Couldn't send on esme : %v", err))
 		os.Exit(1)
 	}
-	InfoSmppLogger.Println("Sent")
+	if resp.Body.MandatoryParameter["message_id"] != expectedMessageId { // step 5
+		fmt.Print(fmt.Errorf("The smsc_connection didn't receive expected message ID!"))
+		os.Exit(1)
+	}
 }
 
 func step2(receivedMessageChannel chan *pduNeedingAnswer) func(e *ESME, p PDU) error {
@@ -73,9 +79,8 @@ func step2(receivedMessageChannel chan *pduNeedingAnswer) func(e *ESME, p PDU) e
 		current_state := e.GetEsmeState()
 		DebugSmppLogger.Printf("Pdu received on client : %v", p)
 		if !(current_state == BOUND_RX || current_state == BOUND_TRX) {
-			resp_pdu := NewDeliverSMResp().WithSequenceNumber(p.Header.SequenceNumber)
-			resp_pdu.WithSMPPError(ESME_RINVBNDSTS)
-			e.Send(&resp_pdu)
+			resp_pdu := NewDeliverSMResp().WithSequenceNumber(p.Header.SequenceNumber).WithSMPPError(ESME_RINVBNDSTS)
+			_ = e.Reply(resp_pdu)
 			return fmt.Errorf("Not supposed to receive deliver_sm if binding isn't as a receiver!")
 		} else { // Right type of binding
 			if p.Body.MandatoryParameter["destination_addr"] == expectedDestinationAddress {
@@ -83,21 +88,9 @@ func step2(receivedMessageChannel chan *pduNeedingAnswer) func(e *ESME, p PDU) e
 				// send PDU into channel to offload esme and process the PDU in our own manner (maybe we got multiple esme ?)
 				answerChannel := make(chan *PDU)
 				receivedMessageChannel <- &pduNeedingAnswer{p, answerChannel}
-				e.Send(<-answerChannel) // Step 3
+				return e.Reply((<-answerChannel).WithSequenceNumber(p.Header.SequenceNumber)) // Step 3
 			}
 		}
-		return nil
-	}
-}
-
-func step5(channel chan bool) func(*ESME, PDU) error {
-	return func(e *ESME, p PDU) error {
-
-		if p.Body.MandatoryParameter["message_id"] != expectedMessageId {
-			fmt.Print(fmt.Errorf("The smsc_connection didn't receive expected message ID!"))
-			os.Exit(1)
-		}
-		channel <- true
 		return nil
 	}
 }
@@ -136,7 +129,9 @@ func main() {
 	esme.StartControlLoop()
 	defer esme.Close()
 
-	_, err = esme.BindReceiver("MySystemId", "Password") // Currently skipping the response pdu check
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = esme.BindReceiver(ctx, "MySystemId", "Password")
 	if err != nil {
 		fmt.Print(fmt.Errorf("Couldn't bind esme : %v", err))
 		os.Exit(1)
@@ -145,24 +140,7 @@ func main() {
 
 
 	server_smpp_conn_obj := smsc.ESMEs.Load().([]*ESME)[0] // Have the server connection object send the deliver_sm
-	step5processing_channel := make(chan bool)
-	server_smpp_conn_obj.CommandFunctions["deliver_sm_resp"] = step5(step5processing_channel)
-
-	InfoSmppLogger.Println("About to send")
-	// Step 1, skipping the response pdu checks
 	step1(server_smpp_conn_obj)
-	Wait10SecondsForAnAnswerOrContinue(step5processing_channel)
 
 	fmt.Println("Reached the end of the program!")
-}
-
-
-
-func Wait10SecondsForAnAnswerOrContinue(step5processing_channel chan bool) {
-	select {
-	case <-time.After(10 * time.Second):
-		InfoSmppLogger.Fatalln("Timeout of the program.")
-	case <-step5processing_channel:
-
-	}
 }

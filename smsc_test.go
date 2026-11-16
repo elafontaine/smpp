@@ -41,7 +41,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	}
 	defer Esme2.Close()
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 2)
-	resp_pdu, err2 := Esme2.BindTransmitter("SystemId", "Password") //Should we expect the bind_transmitter to return only when the bind is done and valid?
+	resp_pdu, err2 := Esme2.BindTransmitter(contextWithin(t, time.Second), "SystemId", "Password")
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %v", err2)
 	}
@@ -50,7 +50,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 		WithSequenceNumber(1).
 		WithSMPPError(ESME_ROK)
 	expectedBuf.Header.CommandLength = 25
-	comparePdu(*resp_pdu, expectedBuf, t)
+	comparePdu(resp_pdu, expectedBuf, t)
 	if !assertWeHaveActiveConnections(smsc, 2) {
 		t.Errorf("We didn't have the expected amount of connections!")
 	}

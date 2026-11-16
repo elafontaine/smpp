@@ -1,6 +1,7 @@
 package smpp
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -27,7 +28,7 @@ func init() {
 
 func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	type args struct {
-		bind_pdu func(e *ESME, sys, pass string) (*PDU, error)
+		bind_pdu func(e *ESME, ctx context.Context, sys, pass string) (PDU, error)
 	}
 	tests := []struct {
 		name        string
@@ -43,7 +44,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			smsc, _, Esme := connectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
-			resp_pdu, LastError := tt.args.bind_pdu(Esme, validSystemID, validPassword)
+			resp_pdu, LastError := tt.args.bind_pdu(Esme, contextWithin(t, time.Second), validSystemID, validPassword)
 			if LastError != nil {
 				t.Errorf("Error sending to or handling the answer from SMSC : %v", LastError)
 			}
@@ -85,21 +86,13 @@ func TestReactionFromSmscOnFirstPDUForDefaultBehaviour(t *testing.T) {
 			smsc, _, Esme := connectEsmeAndSmscTogether(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
-			_, LastError := Esme.Send(tt.args.bind_pdu)
-
-			if LastError != nil {
-				t.Errorf("Couldn't write to the socket PDU: %v", LastError)
-			}
-			pduResp, err := waitForBindResponse(Esme)
+			pduResp, err := Esme.Send(contextWithin(t, time.Second), *tt.args.bind_pdu)
 			if err != nil {
-				t.Logf("didn't receive a successful answer (might not be an issue): %v", err)
+				t.Fatalf("Couldn't get an answer from the SMSC: %v", err)
 			}
 			tt.wantSMSCResp.Header.SequenceNumber = pduResp.Header.SequenceNumber
 			tt.wantSMSCResp.Header.CommandLength = pduResp.Header.CommandLength
-			if err != nil && pduResp.Header.CommandStatus != tt.wantSMSCResp.Header.CommandStatus {
-				t.Errorf("Error handling the answer from SMSC : %v", err)
-			}
-			comparePdu(*pduResp, tt.wantSMSCResp, t)
+			comparePdu(pduResp, tt.wantSMSCResp, t)
 		})
 	}
 }
@@ -142,23 +135,14 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 
 			Esme.state.SetState(tt.args.bind_state)
 			smsc.ESMEs.Load().([]*ESME)[0].state.SetState(tt.args.bind_state)
-			sequence_number, LastError := Esme.Send(&tt.args.send_pdu)
+			actualPdu, LastError := Esme.Send(contextWithin(t, time.Second), tt.args.send_pdu)
 			if LastError != nil {
-				t.Errorf("Failed to send pdu : %v", LastError)
+				t.Fatalf("Failed to get an answer : %v", LastError)
 			}
 
 			expectedPdu := tt.wantSMSCResp
-			actualBytes, LastError := readPduBytesFromConnection(Esme.clientSocket, time.Now().Add(1*time.Second))
-
-			if LastError != nil {
-				t.Errorf("Failed to receive bytes : %v", LastError)
-			}
-			actualPdu, LastError := ParsePdu(actualBytes)
 			expectedPdu.Header.CommandLength = actualPdu.Header.CommandLength
-			expectedPdu.Header.SequenceNumber = sequence_number
-			if LastError != nil {
-				t.Errorf("Couldn't parse received bytes : %v", LastError)
-			}
+			expectedPdu.Header.SequenceNumber = actualPdu.Header.SequenceNumber
 			comparePdu(actualPdu, expectedPdu, t)
 		})
 	}

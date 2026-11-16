@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	. "github.com/elafontaine/smpp"
 )
@@ -22,7 +24,9 @@ func main() {
 	}
 	smsc.Start()  // Only useful as we use a smsc server
 
-	_, err = esme.BindTransmitter("MySystemId", "Password") // Currently skipping the response pdu check
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = esme.BindTransmitter(ctx, "MySystemId", "Password")
 	if err != nil {
 		fmt.Print(fmt.Errorf("Couldn't bind esme : %v", err))
 		os.Exit(1)
@@ -33,10 +37,11 @@ func main() {
 		WithDataCoding(3).
 		WithMessage("Hello, how are you today ?").
 		WithSourceAddress("5557654321")
-	_, err = esme.Send(&submitSm) // skipping the response pdu checks
+	resp, err := esme.Send(ctx, submitSm)
 	if err != nil {
 		fmt.Print(fmt.Errorf("Couldn't send on esme : %v", err))
 		os.Exit(1)
 	}
+	fmt.Printf("submit_sm answered with message_id %v\n", resp.Body.MandatoryParameter["message_id"])
 	fmt.Println("Reached the end of the program!")
 }

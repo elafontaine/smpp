@@ -145,29 +145,11 @@ func (s *SMSC) acceptAllNewConnection() {
 	}
 }
 
+// handleConnection runs the connection's read loop, which answers through the ESME's
+// CommandFunctions, and returns once the connection is gone.
 func handleConnection(e *ESME) {
-	for e.GetEsmeState() != CLOSED {
-		err := handleOperations(e)
-		if err != nil {
-			InfoSmppLogger.Printf("Issue on Connection: %v\n", err)
-		}
-		time.Sleep(0)
-	}
-}
-
-func handleOperations(e *ESME) (formated_error error) {
-	receivedPdu, formated_error := e.receivePdu()
-	if formated_error != nil {
-		return formated_error
-	}
-	ABindOperation := IsBindOperation(receivedPdu)
-	if e.GetEsmeState() == OPEN && !ABindOperation {
-		formated_error = handleNonBindedOperations(e, receivedPdu)
-	}
-	if _, ok := e.CommandFunctions[receivedPdu.Header.CommandId]; ok {
-		formated_error = e.CommandFunctions[receivedPdu.Header.CommandId](e, receivedPdu)
-	}
-	return formated_error
+	e.StartControlLoop()
+	e.wg.Wait()
 }
 
 func (s *SMSC) ensureCleanUpOfEsmes(e *ESME) {

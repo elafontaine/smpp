@@ -17,13 +17,10 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 
 	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
 	secondPdu := NewSubmitSM().WithSequenceNumber(2)
-	sequence_number1, LastError1 := Esme.Send(&firstPdu)
-	sequence_number2, LastError2 := Esme.Send(&secondPdu)
-	if sequence_number1 != 1 || sequence_number2 != 2 {
-		t.Errorf("Sending sequence number isn't as expected !")
-	}
+	_, LastError1 := Esme.SendAsync(firstPdu)
+	_, LastError2 := Esme.SendAsync(secondPdu)
 	if LastError1 != nil || LastError2 != nil {
-		t.Errorf("Error writing : %v", LastError2)
+		t.Errorf("Error writing : %v, %v", LastError1, LastError2)
 	}
 	assertReceivedPduIsSameAsExpected(smsc_connection, t, firstPdu)
 	assertReceivedPduIsSameAsExpected(smsc_connection, t, secondPdu)
@@ -44,24 +41,9 @@ func TestSendingOnClosedEsmeReturnError(t *testing.T) {
 	defer CloseAndAssertClean(smsc, Esme, t)
 	Esme.Close()
 
-	_, LastError1 := Esme.BindTransmitter(validSystemID, validPassword)
+	_, LastError1 := Esme.BindTransmitter(contextWithin(t, time.Second), validSystemID, validPassword)
 	if !errors.Is(LastError1, net.ErrClosed) {
 		t.Errorf("Error in test : %v", LastError1)
-	}
-}
-
-func TestReceivingOnClosingEsmeReturnError(t *testing.T) {
-	smsc, Esme, _ := GetSmscAndConnectEsme(t)
-	defer CloseAndAssertClean(smsc, Esme, t)
-
-	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
-	if _, err := Esme.Send(&firstPdu); err != nil {
-		t.Errorf("Error sending PDU: %v", err)
-	}
-	Esme.Close()
-	_, err := Esme.receivePdu()
-	if !errors.Is(err, net.ErrClosed) {
-		t.Errorf("Error in test : %v", err)
 	}
 }
 
@@ -73,7 +55,7 @@ func TestAssigningEsmeSomeDefaultsWithBinding(t *testing.T) {
 		"password":  validPassword,
 	}
 	Esme.SetDefaults(esmeDefaults)
-	err := Esme.BindAsTransmitter()
+	err := Esme.BindAsTransmitter(contextWithin(t, time.Second))
 
 	if err != nil || Esme.GetEsmeState() != BOUND_TX {
 		t.Errorf("Error in test : %v", err)
@@ -90,12 +72,11 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	iterations := 100
 	for i := 0; i <= iterations; i++ {
 		go func() {
-			enquireLink := NewEnquireLink()
-			actual_seq_num, err := esme.Send(&enquireLink)
+			resp, err := esme.Send(contextWithin(t, 5*time.Second), NewEnquireLink())
 			if err != nil {
-				t.Error("Issue sending enquire_link")
+				t.Errorf("Issue sending enquire_link: %v", err)
 			}
-			all_seq_numbers <- actual_seq_num
+			all_seq_numbers <- resp.Header.SequenceNumber
 		}()
 	}
 	for i := 0; i <= iterations; i++ {
@@ -110,7 +91,7 @@ func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
 	smsc, esme, _ := GetSmscAndConnectEsme(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 
-	message_ids := messageIdsGenerator()
+	message_ids := messageIdsGenerator(t)
 
 	esme.CommandFunctions["deliver_sm"] = func(e *ESME, p PDU) error {
 		pdu_resp := NewDeliverSMResp().
@@ -119,19 +100,13 @@ func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
 		if !e.isReceiverState() {
 			pdu_resp = pdu_resp.WithSMPPError(ESME_RINVBNDSTS)
 		}
-		_, err := e.Send(&pdu_resp)
-		return err
+		return e.Reply(pdu_resp)
 	}
 
 	esme.StartControlLoop()
 
 	smsc_esme := smsc.ESMEs.Load().([]*ESME)[0]
-	deliverSm := NewDeliverSM().WithMessage("Hello")
-	_, err := smsc_esme.Send(&deliverSm)
-	if err != nil {
-		t.Errorf("couldn't send to client successfully: %v", err)
-	}
-	pdu, smsc_err := smsc_esme.receivePdu()
+	pdu, smsc_err := smsc_esme.Send(contextWithin(t, time.Second), NewDeliverSM().WithMessage("Hello"))
 	if smsc_err != nil {
 		t.Errorf("Something failed while waiting for client to answer to server: %v", smsc_err)
 	}
@@ -140,15 +115,18 @@ func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
 	}
 }
 
-func messageIdsGenerator() chan string {
+func messageIdsGenerator(t *testing.T) chan string {
 	message_ids := make(chan string)
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
 	go func() {
-		i := 0
-		for {
-			message_ids <- fmt.Sprint(i)
-			i++
+		for i := 0; ; i++ {
+			select {
+			case message_ids <- fmt.Sprint(i):
+			case <-stop:
+				return
+			}
 		}
-
 	}()
 	return message_ids
 }
