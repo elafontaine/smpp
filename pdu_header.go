@@ -3,8 +3,12 @@ package smpp
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 )
+
+// errUnknownCommandID marks a PDU whose command_id isn't in the command table.
+var errUnknownCommandID = errors.New("unknown command_id")
 
 type Header struct {
 	CommandLength  int
@@ -54,7 +58,7 @@ func extractCommandID(bytes []byte) (string, error) {
 	if value, ok := commandIdByHex[commandId]; ok {
 		return value["name"], nil
 	}
-	return "", fmt.Errorf("unknown command_id %s", commandId)
+	return "", fmt.Errorf("%w %s", errUnknownCommandID, commandId)
 }
 
 func verifyLength(fixture []byte) (int, error) {

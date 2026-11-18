@@ -3,14 +3,14 @@ package smpp
 func defaultHeader() Header {
 	return Header{
 		CommandLength:  0,
-		CommandId:      "generick_nack",
+		CommandId:      "generic_nack",
 		CommandStatus:  ESME_ROK,
 		SequenceNumber: 0,
 	}
 }
 
 /* Sane Defaults objects */
-func NewGenerickNack() PDU {
+func NewGenericNack() PDU {
 	header := defaultHeader()
 	return PDU{Header: header}
 }
