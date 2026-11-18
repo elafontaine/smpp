@@ -2,6 +2,7 @@ package smpp
 
 import (
 	"context"
+	"encoding/hex"
 	"runtime"
 	"strings"
 	"sync"
@@ -167,5 +168,33 @@ func TestConnectionCleanupDoesntWaitForAClosedSmsc(t *testing.T) {
 	}
 	if !eventually(func() bool { return goroutinesIn("(*SMSC).closeAndRemoveEsme(") == 0 }) {
 		t.Errorf("%d connection cleanups stuck waiting for a closed SMSC", goroutinesIn("(*SMSC).closeAndRemoveEsme("))
+	}
+}
+
+// A PDU whose command_id the ESME doesn't know gets a generic_nack (ESME_RINVCMDID) carrying
+// its sequence_number, and the connection stays up.
+func TestUnknownCommandIdIsAnsweredWithGenericNack(t *testing.T) {
+	smsc, esme, smscConnection := GetSmscAndConnectEsme(t)
+	defer CloseAndAssertClean(smsc, esme, t)
+	esme.StartControlLoop()
+
+	unknown, _ := hex.DecodeString("00000010" + "00001115" + "00000000" + "0000002a") // sequence_number 42
+	if _, err := smscConnection.Write(unknown); err != nil {
+		t.Fatalf("writing the PDU: %v", err)
+	}
+	raw, err := readPduBytesFromConnection(smscConnection, time.Now().Add(time.Second))
+	if err != nil {
+		t.Fatalf("no answer: %v", err)
+	}
+	answer, err := ParsePdu(raw)
+	if err != nil {
+		t.Fatalf("ParsePdu() error = %v", err)
+	}
+	want := Header{CommandLength: 16, CommandId: "generic_nack", CommandStatus: ESME_RINVCMDID, SequenceNumber: 42}
+	if answer.Header != want {
+		t.Errorf("answer header = %+v, want %+v", answer.Header, want)
+	}
+	if state := esme.GetEsmeState(); state == CLOSED {
+		t.Errorf("ESME state = %s, want the connection kept", state)
 	}
 }

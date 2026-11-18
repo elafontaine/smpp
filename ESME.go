@@ -3,6 +3,7 @@ package smpp
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -306,8 +307,15 @@ func (e *ESME) pduDispatcher() {
 			return
 		}
 		pdu, err := ParsePdu(raw)
+		if errors.Is(err, errUnknownCommandID) {
+			sequenceNumber := int(binary.BigEndian.Uint32(raw[12:16])) // the header is there: raw is a whole PDU
+			if err := e.Reply(NewGenericNack().WithSMPPError(ESME_RINVCMDID).WithSequenceNumber(sequenceNumber)); err != nil {
+				ErrorSmppLogger.Printf("Couldn't answer an unknown command_id with generic_nack: %v", err)
+			}
+			continue
+		}
 		if err != nil {
-			continue // malformed PDU, boundaries intact: skipped (answering it with generic_nack comes later)
+			continue // malformed PDU of a known command, boundaries intact: skipped
 		}
 		if e.deliverResponse(pdu) {
 			continue

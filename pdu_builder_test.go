@@ -1,6 +1,7 @@
 package smpp
 
 import (
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"testing"
@@ -176,15 +177,19 @@ func TestDeliverSmRespInstantiation(t *testing.T) {
 
 func TestGenericNACK(t *testing.T) {
 	t.Parallel()
-	expectedDeliverSmResp := PDU{Header: generickNackHeader}
+	expectedDeliverSmResp := PDU{Header: genericNackHeader}
 	expectedDeliverSmResp.Header.CommandLength = 0
 	expectedDeliverSmResp.Header.SequenceNumber = 0
 
-	actualDeliverSmResp := NewGenerickNack().WithSMPPError("ESME_RINVSRCADR")
+	actualDeliverSmResp := NewGenericNack().WithSMPPError("ESME_RINVSRCADR")
 
 	t.Run("Constructor Pattern for DeliverSmResp ", func(t *testing.T) {
 		comparePdu(actualDeliverSmResp, expectedDeliverSmResp, t)
 	})
+	encoded, err := EncodePdu(NewGenericNack().WithSequenceNumber(5))
+	if want := "00000010800000000000000000000005"; err != nil || hex.EncodeToString(encoded) != want {
+		t.Errorf("EncodePdu(NewGenericNack()) = %x, %v, want %s", encoded, err, want)
+	}
 }
 
 func TestEnquiryLink(t *testing.T) {
