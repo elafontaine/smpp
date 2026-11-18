@@ -81,7 +81,7 @@ func NewBindReceiverResp() PDU {
 func NewSubmitSM() PDU {
 	header := defaultHeader()
 	header.CommandId = "submit_sm"
-	body := defaultSubmitSmBody()
+	body := defaultMessageBody()
 	return PDU{Header: header, Body: body}
 }
 
@@ -106,14 +106,14 @@ func NewDeliverSMResp() PDU {
 func NewDeliverSM() PDU {
 	header := defaultHeader()
 	header.CommandId = "deliver_sm"
-	body := defaultSubmitSmBody()
+	body := defaultMessageBody()
 	return PDU{Header: header, Body: body}
 }
 
 func NewDataSM() PDU {
 	header := defaultHeader()
 	header.CommandId = "data_sm"
-	body := defaultSubmitSmBody()
+	body := defaultMessageBody()
 	return PDU{Header: header, Body: body}
 }
 
@@ -133,7 +133,8 @@ func defaultBindBody() Body {
 	return body
 }
 
-func defaultSubmitSmBody() Body {
+// defaultMessageBody is the default body of the message delivery PDUs: submit_sm, deliver_sm and data_sm.
+func defaultMessageBody() Body {
 	body := Body{
 		MandatoryParameter: map[string]interface{}{
 			"service_type":            "",
@@ -239,6 +240,8 @@ func (p PDU) WithDataCoding(i int) PDU {
 	return p
 }
 
+// WithMessage sets short_message as text. The encoder converts it with the PDU's data_coding
+// and sets sm_length to the encoded size.
 func (p PDU) WithMessage(s string) PDU {
 	p.Body.MandatoryParameter["short_message"] = s
 	return p

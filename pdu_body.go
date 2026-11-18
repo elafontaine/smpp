@@ -94,7 +94,12 @@ func extractMandatoryParameters(header Header, scan *bufio.Reader) map[string]in
 			if numberRead != smLength {
 				log.Printf("Unable to read full PDU, failure not yet implemented")
 			}
-			mandatoryParameterMap[mandatory_params["name"].(string)] = string(shortMessage)
+			dataCoding, _ := mandatoryParameterMap["data_coding"].(int)
+			text, err := DecodeText(dataCoding, shortMessage)
+			if err != nil {
+				text = string(shortMessage) // undecodable: keep the raw bytes (decode errors aren't reported yet)
+			}
+			mandatoryParameterMap["short_message"] = text
 		}
 	}
 	return mandatoryParameterMap
@@ -154,8 +159,15 @@ func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) (opti
 }
 
 func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
+	shortMessage, smLength, err := encodeShortMessage(obj)
+	if err != nil {
+		return nil, err
+	}
 	for _, mandatoryParam := range mandatoryParameterLists[obj.Header.CommandId] {
 		value, ok := obj.Body.MandatoryParameter[mandatoryParam["name"].(string)]
+		if mandatoryParam["name"].(string) == "sm_length" {
+			value, ok = smLength, smLength != nil
+		}
 		if ok {
 			if mandatoryParam["type"].(string) == "string" {
 				fieldBytes := []byte(value.(string))
@@ -163,9 +175,16 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 			}
 
 			if mandatoryParam["type"].(string) == "integer" || mandatoryParam["type"].(string) == "hex" {
-				integerBuffer := make([]byte, mandatoryParam["max"].(int))
-				binary.PutUvarint(integerBuffer, uint64(obj.Body.MandatoryParameter[mandatoryParam["name"].(string)].(int)))
-				bodyBytes = append(bodyBytes, integerBuffer...)
+				width := mandatoryParam["max"].(int)
+				bodyBytes, err = appendFixedWidthInteger(bodyBytes, value.(int), width)
+				if err != nil {
+					err = fmt.Errorf("%v of %v pdu is %v, %w, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId, value, err)
+					return
+				}
+			}
+
+			if mandatoryParam["type"].(string) == "xstring" {
+				bodyBytes = append(bodyBytes, shortMessage...)
 			}
 		} else {
 			err = fmt.Errorf("%v of %v pdu missing, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId)
@@ -173,4 +192,44 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 		}
 	}
 	return
+}
+
+// encodeShortMessage returns short_message's bytes and the sm_length to send with them:
+//   - text (string) is encoded with the PDU's data_coding, and sm_length is the encoded size,
+//     whatever the map says;
+//   - a []byte is sent as given, with the map's sm_length, so a peer can be tested with an
+//     inconsistent PDU.
+func encodeShortMessage(obj PDU) (message []byte, smLength interface{}, err error) {
+	switch value := obj.Body.MandatoryParameter["short_message"].(type) {
+	case string:
+		if value == "" { // empty in every data_coding, even one EncodeText doesn't support
+			return nil, 0, nil
+		}
+		dataCoding, _ := obj.Body.MandatoryParameter["data_coding"].(int)
+		message, err = EncodeText(dataCoding, value)
+		if err != nil {
+			return nil, nil, fmt.Errorf("short_message of %v pdu: %w, can't encode", obj.Header.CommandId, err)
+		}
+		return message, len(message), nil
+	case []byte:
+		return value, obj.Body.MandatoryParameter["sm_length"], nil
+	}
+	return nil, obj.Body.MandatoryParameter["sm_length"], nil
+}
+
+// appendFixedWidthInteger appends value as a big-endian unsigned integer of width bytes,
+// the way SMPP encodes its integer fields.
+func appendFixedWidthInteger(buf []byte, value int, width int) ([]byte, error) {
+	if value < 0 || (width < 8 && value >= 1<<(8*width)) {
+		return buf, fmt.Errorf("doesn't fit in %d byte(s)", width)
+	}
+	switch width {
+	case 1:
+		return append(buf, byte(value)), nil
+	case 2:
+		return binary.BigEndian.AppendUint16(buf, uint16(value)), nil
+	case 4:
+		return binary.BigEndian.AppendUint32(buf, uint32(value)), nil
+	}
+	return buf, fmt.Errorf("unsupported integer width %d", width)
 }

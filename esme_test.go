@@ -29,7 +29,9 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	assertReceivedPduIsSameAsExpected(smsc_connection, t, secondPdu)
 }
 
-func TestClosingEsmeCloseSocketAndDoesntBlock(t *testing.T) {
+// Closing an ESME a second time must neither block nor panic. (That Close closes the socket
+// is checked by TestSendingOnClosedEsmeReturnError and TestReceivingOnClosingEsmeReturnError.)
+func TestClosingEsmeTwiceDoesntBlock(t *testing.T) {
 	smsc, _, Esme := connectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
