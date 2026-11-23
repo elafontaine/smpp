@@ -251,13 +251,20 @@ func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
 		}
 		if ok {
 			if mandatoryParam["type"].(string) == "string" {
-				fieldBytes := []byte(value.(string))
-				bodyBytes = append(bodyBytes, append(fieldBytes, 0)...)
+				text, isString := value.(string)
+				if !isString {
+					return nil, fmt.Errorf("%v of %v pdu is a %T, want a string, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId, value)
+				}
+				bodyBytes = append(bodyBytes, append([]byte(text), 0)...)
 			}
 
 			if mandatoryParam["type"].(string) == "integer" || mandatoryParam["type"].(string) == "hex" {
+				integer, isInt := value.(int)
+				if !isInt {
+					return nil, fmt.Errorf("%v of %v pdu is a %T, want an int, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId, value)
+				}
 				width := mandatoryParam["max"].(int)
-				bodyBytes, err = appendFixedWidthInteger(bodyBytes, value.(int), width)
+				bodyBytes, err = appendFixedWidthInteger(bodyBytes, integer, width)
 				if err != nil {
 					err = fmt.Errorf("%v of %v pdu is %v, %w, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId, value, err)
 					return
@@ -294,8 +301,11 @@ func encodeShortMessage(obj PDU) (message []byte, smLength interface{}, err erro
 		return message, len(message), nil
 	case []byte:
 		return value, obj.Body.MandatoryParameter["sm_length"], nil
+	case nil: // no short_message: a PDU without one, or one where it's missing
+		return nil, obj.Body.MandatoryParameter["sm_length"], nil
+	default:
+		return nil, nil, fmt.Errorf("short_message of %v pdu is a %T, want a string or []byte, can't encode", obj.Header.CommandId, value)
 	}
-	return nil, obj.Body.MandatoryParameter["sm_length"], nil
 }
 
 // appendFixedWidthInteger appends value as a big-endian unsigned integer of width bytes,

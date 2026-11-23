@@ -8,17 +8,20 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
+// The library's loggers. By default Debug and Info are discarded and Warning and Error go to
+// stderr; replace any of them to change that.
 var (
-	DebugSmppLogger   *log.Logger
-	WarningSmppLogger *log.Logger
-	InfoSmppLogger    *log.Logger
-	ErrorSmppLogger   *log.Logger
+	DebugSmppLogger   = log.New(io.Discard, "DEBUG: ", log.LstdFlags)
+	WarningSmppLogger = log.New(os.Stderr, "WARNING: ", log.LstdFlags)
+	InfoSmppLogger    = log.New(io.Discard, "INFO: ", log.LstdFlags)
+	ErrorSmppLogger   = log.New(os.Stderr, "ERROR: ", log.LstdFlags)
 )
 
 // maxPduLength bounds command_length, so a corrupt length can't make us allocate gigabytes.
@@ -258,7 +261,7 @@ func (e *ESME) forget(seq int) {
 // deliverResponse hands a response (*_resp or generic_nack) to the request waiting for it, and
 // tells whether there was one.
 func (e *ESME) deliverResponse(pdu PDU) bool {
-	if !strings.HasSuffix(pdu.Header.CommandId, "_resp") && pdu.Header.CommandId != "generic_nack" {
+	if !isResponse(pdu.Header.CommandId) {
 		return false
 	}
 	var responses chan Response
@@ -355,32 +358,53 @@ func (e *ESME) pduDispatcher() {
 		}
 		pdu, err := ParsePdu(raw)
 		if errors.Is(err, errUnknownCommandID) {
-			sequenceNumber := int(binary.BigEndian.Uint32(raw[12:16])) // the header is there: raw is a whole PDU
-			if err := e.Reply(NewGenericNack().WithSMPPError(ESME_RINVCMDID).WithSequenceNumber(sequenceNumber)); err != nil {
-				ErrorSmppLogger.Printf("Couldn't answer an unknown command_id with generic_nack: %v", err)
-			}
+			e.nack(ESME_RINVCMDID, int(binary.BigEndian.Uint32(raw[12:16]))) // raw is a whole PDU: the header is there
 			continue
 		}
 		if err != nil {
-			continue // malformed PDU of a known command, boundaries intact: skipped
+			if isRequest(pdu.Header.CommandId) { // known command, malformed body
+				e.nack(ESME_RINVCMDLEN, pdu.Header.SequenceNumber)
+			}
+			continue
 		}
 		if e.deliverResponse(pdu) {
 			continue
 		}
-		if handler, ok := e.CommandFunctions[pdu.Header.CommandId]; ok {
-			if window != nil {
-				window <- struct{}{} // waits while the window is full
+		handler, ok := e.CommandFunctions[pdu.Header.CommandId]
+		if !ok {
+			if isRequest(pdu.Header.CommandId) { // a request nothing here handles
+				e.nack(ESME_RINVCMDID, pdu.Header.SequenceNumber)
 			}
-			e.wg.Add(1) // Close waits for running handlers too
-			go func() {
-				defer e.wg.Done()
-				if window != nil {
-					defer func() { <-window }()
-				}
-				if err := handler(e, pdu); err != nil {
-					ErrorSmppLogger.Printf("Error handling %s PDU: %v", pdu.Header.CommandId, err)
-				}
-			}()
+			continue
 		}
+		if window != nil {
+			window <- struct{}{} // waits while the window is full
+		}
+		e.wg.Add(1) // Close waits for running handlers too
+		go func() {
+			defer e.wg.Done()
+			if window != nil {
+				defer func() { <-window }()
+			}
+			if err := handler(e, pdu); err != nil {
+				ErrorSmppLogger.Printf("Error handling %s PDU: %v", pdu.Header.CommandId, err)
+			}
+		}()
+	}
+}
+
+func isResponse(commandId string) bool {
+	return strings.HasSuffix(commandId, "_resp") || commandId == "generic_nack"
+}
+
+// isRequest is false for responses, and for a header that couldn't be read (empty command_id).
+func isRequest(commandId string) bool {
+	return commandId != "" && !isResponse(commandId)
+}
+
+// nack answers a request this ESME can't process with a generic_nack.
+func (e *ESME) nack(status string, sequenceNumber int) {
+	if err := e.Reply(NewGenericNack().WithSMPPError(status).WithSequenceNumber(sequenceNumber)); err != nil {
+		ErrorSmppLogger.Printf("Couldn't send generic_nack (%s, sequence_number %d): %v", status, sequenceNumber, err)
 	}
 }

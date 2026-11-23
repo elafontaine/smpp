@@ -78,9 +78,17 @@ func verifyLength(fixture []byte) (int, error) {
 
 func encodeHeader(obj PDU, bodyBytes []byte) (headerBytes []byte, err error) {
 	headerBytes = []byte{}
-	commandIdBytes, _ := hex.DecodeString(commandIdByName[obj.Header.CommandId]["hex"])
+	commandId, known := commandIdByName[obj.Header.CommandId]
+	if !known {
+		return nil, fmt.Errorf("unknown command_id %q, can't encode", obj.Header.CommandId)
+	}
+	commandIdBytes, _ := hex.DecodeString(commandId["hex"])
 	headerBytes = append(headerBytes, commandIdBytes...)
-	commandStatusBytes, _ := hex.DecodeString(commandStatusByName[obj.Header.CommandStatus]["hex"])
+	commandStatus, known := commandStatusByName[obj.Header.CommandStatus]
+	if !known {
+		return nil, fmt.Errorf("unknown command_status %q, can't encode", obj.Header.CommandStatus)
+	}
+	commandStatusBytes, _ := hex.DecodeString(commandStatus["hex"])
 	headerBytes = append(headerBytes, commandStatusBytes...)
 	sequence_number_buffer := make([]byte, 4)
 	binary.BigEndian.PutUint32(sequence_number_buffer, uint32(obj.Header.SequenceNumber))
