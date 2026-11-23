@@ -17,7 +17,7 @@ const (
 type SMSC struct {
 	listeningSocket net.Listener
 	ESMEs           atomic.Value
-	State           State
+	State           *State
 	NewConnChan     chan net.Conn
 	NewEsmeChan     chan *ESME
 	RemoveEsmeChan  chan *ESME
@@ -29,7 +29,7 @@ type SMSC struct {
 func NewSMSC(listeningSocket *net.Listener, SystemId string, Password string) (s *SMSC) {
 	s = &SMSC{
 		listeningSocket: *listeningSocket,
-		State:           *NewESMEState(LISTENING),
+		State:           NewESMEState(LISTENING),
 		ESMEs:           atomic.Value{},
 		NewConnChan:     make(chan net.Conn),
 		NewEsmeChan:     make(chan *ESME),
@@ -146,20 +146,12 @@ func (s *SMSC) acceptAllNewConnection() {
 			}
 			continue
 		}
-		go s.ensureCleanUpOfEsmes(e)
+		// Run the connection's read loop, which answers through the ESME's CommandFunctions;
+		// once the connection is gone, close it and drop it from the list.
+		go func() {
+			defer s.closeAndRemoveEsme(e)
+			e.StartControlLoop()
+			e.wg.Wait()
+		}()
 	}
-}
-
-// handleConnection runs the connection's read loop, which answers through the ESME's
-// CommandFunctions, and returns once the connection is gone.
-func handleConnection(e *ESME) {
-	e.StartControlLoop()
-	e.wg.Wait()
-}
-
-func (s *SMSC) ensureCleanUpOfEsmes(e *ESME) {
-	go func() {
-		defer s.closeAndRemoveEsme(e)
-		handleConnection(e)
-	}()
 }
