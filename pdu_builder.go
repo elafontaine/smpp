@@ -274,13 +274,3 @@ func (p PDU) isSystemId(id string) bool {
 func (p PDU) isPassword(password string) bool {
 	return p.Body.MandatoryParameter["password"] == password
 }
-
-func IsBindOperation(receivedPdu PDU) bool {
-	switch receivedPdu.Header.CommandId {
-	case "bind_transmitter",
-		"bind_receiver",
-		"bind_transceiver":
-		return true
-	}
-	return false
-}

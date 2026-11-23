@@ -210,7 +210,7 @@ func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) ([]by
 	var value []byte
 	switch v := optionalParam["value"].(type) {
 	case int:
-		value, err = appendFixedWidthInteger(nil, v, optionalParameterIntegerWidth(definition["hex"].(string)))
+		value, err = appendFixedWidthInteger(nil, v, optionalParameterIntegerWidth(definition))
 		if err != nil {
 			return nil, fmt.Errorf("optional parameter %s is %d, %w, can't encode", name, v, err)
 		}
@@ -232,8 +232,8 @@ func encodeSpecificOptionalParameter(optionalParam map[string]interface{}) ([]by
 }
 
 // optionalParameterIntegerWidth gives an integer TLV's size: the table's "min", or 1 byte.
-func optionalParameterIntegerWidth(tagHex string) int {
-	if width, ok := optionalParameterTagByHex[tagHex]["min"].(int); ok {
+func optionalParameterIntegerWidth(definition map[string]interface{}) int {
+	if width, ok := definition["min"].(int); ok {
 		return width
 	}
 	return 1
