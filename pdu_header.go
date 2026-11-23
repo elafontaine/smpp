@@ -62,40 +62,32 @@ func extractCommandID(bytes []byte) (string, error) {
 }
 
 func verifyLength(fixture []byte) (int, error) {
-	if len(fixture) > 3 {
-		pdu_length := int(binary.BigEndian.Uint32(fixture[0:4]))
-		if pdu_length < 16 {
-			return 0, fmt.Errorf("invalid command_length %d: shorter than the 16-byte header", pdu_length)
-		}
-		if len(fixture) < pdu_length {
-			return 0, fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(fixture))
-		}
-		return pdu_length, nil
+	if len(fixture) < 4 {
+		return 0, fmt.Errorf("invalid length parameter")
 	}
-
-	return 0, fmt.Errorf("invalid length parameter")
+	pdu_length := int(binary.BigEndian.Uint32(fixture[0:4]))
+	if pdu_length < 16 {
+		return 0, fmt.Errorf("invalid command_length %d: shorter than the 16-byte header", pdu_length)
+	}
+	if len(fixture) < pdu_length {
+		return 0, fmt.Errorf("invalid PDU Length for pdu : %v", hex.EncodeToString(fixture))
+	}
+	return pdu_length, nil
 }
 
-func encodeHeader(obj PDU, bodyBytes []byte) (headerBytes []byte, err error) {
-	headerBytes = []byte{}
+func encodeHeader(obj PDU, bodyBytes []byte) ([]byte, error) {
 	commandId, known := commandIdByName[obj.Header.CommandId]
 	if !known {
 		return nil, fmt.Errorf("unknown command_id %q, can't encode", obj.Header.CommandId)
 	}
-	commandIdBytes, _ := hex.DecodeString(commandId["hex"])
-	headerBytes = append(headerBytes, commandIdBytes...)
 	commandStatus, known := commandStatusByName[obj.Header.CommandStatus]
 	if !known {
 		return nil, fmt.Errorf("unknown command_status %q, can't encode", obj.Header.CommandStatus)
 	}
+	commandIdBytes, _ := hex.DecodeString(commandId["hex"])
 	commandStatusBytes, _ := hex.DecodeString(commandStatus["hex"])
+	headerBytes := binary.BigEndian.AppendUint32(nil, uint32(16+len(bodyBytes)))
+	headerBytes = append(headerBytes, commandIdBytes...)
 	headerBytes = append(headerBytes, commandStatusBytes...)
-	sequence_number_buffer := make([]byte, 4)
-	binary.BigEndian.PutUint32(sequence_number_buffer, uint32(obj.Header.SequenceNumber))
-	headerBytes = append(headerBytes, sequence_number_buffer...)
-	length := len(bodyBytes) + 16
-	lengthBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(lengthBytes, uint32(length))
-	headerBytes = append(lengthBytes, headerBytes...)
-	return headerBytes, err
+	return binary.BigEndian.AppendUint32(headerBytes, uint32(obj.Header.SequenceNumber)), nil
 }

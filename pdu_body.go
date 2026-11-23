@@ -158,27 +158,19 @@ func readFixedWidthInteger(raw []byte) (value int) {
 }
 
 // Encoding functions, only EncodePdu should be public
-func encodeBody(obj PDU) (bodyBytes []byte, err error) {
+func encodeBody(obj PDU) ([]byte, error) {
 	if obj.Header.CommandId == "" {
 		return nil, missingHeaderError
 	}
-	var mandatoryParamsBytes []byte
-	var optionalParamsBytes []byte
-
-	mandatoryParamsBytes, err = encodeMandatoryParameters(obj)
+	bodyBytes, err := encodeMandatoryParameters(obj)
 	if err != nil {
 		return nil, err
 	}
-	bodyBytes = append(bodyBytes, mandatoryParamsBytes...)
-
-	if len(obj.Body.OptionalParameters) > 0 {
-		optionalParamsBytes, err = encodeOptionalParameters(obj)
-		if err != nil {
-			return nil, err
-		}
-		bodyBytes = append(bodyBytes, optionalParamsBytes...)
+	optionalParamsBytes, err := encodeOptionalParameters(obj)
+	if err != nil {
+		return nil, err
 	}
-	return bodyBytes, nil
+	return append(bodyBytes, optionalParamsBytes...), nil
 }
 
 func encodeOptionalParameters(obj PDU) (optionalParamsBytes []byte, err error) {
@@ -239,47 +231,42 @@ func optionalParameterIntegerWidth(definition map[string]interface{}) int {
 	return 1
 }
 
-func encodeMandatoryParameters(obj PDU) (bodyBytes []byte, err error) {
+func encodeMandatoryParameters(obj PDU) ([]byte, error) {
 	shortMessage, smLength, err := encodeShortMessage(obj)
 	if err != nil {
 		return nil, err
 	}
+	var bodyBytes []byte
 	for _, mandatoryParam := range mandatoryParameterLists[obj.Header.CommandId] {
-		value, ok := obj.Body.MandatoryParameter[mandatoryParam["name"].(string)]
-		if mandatoryParam["name"].(string) == "sm_length" {
+		name := mandatoryParam["name"].(string)
+		value, ok := obj.Body.MandatoryParameter[name]
+		if name == "sm_length" {
 			value, ok = smLength, smLength != nil
 		}
-		if ok {
-			if mandatoryParam["type"].(string) == "string" {
-				text, isString := value.(string)
-				if !isString {
-					return nil, fmt.Errorf("%v of %v pdu is a %T, want a string, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId, value)
-				}
-				bodyBytes = append(bodyBytes, append([]byte(text), 0)...)
+		if !ok {
+			return nil, fmt.Errorf("%v of %v pdu missing, can't encode", name, obj.Header.CommandId)
+		}
+		switch mandatoryParam["type"].(string) {
+		case "string":
+			text, isString := value.(string)
+			if !isString {
+				return nil, fmt.Errorf("%v of %v pdu is a %T, want a string, can't encode", name, obj.Header.CommandId, value)
 			}
-
-			if mandatoryParam["type"].(string) == "integer" || mandatoryParam["type"].(string) == "hex" {
-				integer, isInt := value.(int)
-				if !isInt {
-					return nil, fmt.Errorf("%v of %v pdu is a %T, want an int, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId, value)
-				}
-				width := mandatoryParam["max"].(int)
-				bodyBytes, err = appendFixedWidthInteger(bodyBytes, integer, width)
-				if err != nil {
-					err = fmt.Errorf("%v of %v pdu is %v, %w, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId, value, err)
-					return
-				}
+			bodyBytes = append(bodyBytes, append([]byte(text), 0)...)
+		case "integer", "hex":
+			integer, isInt := value.(int)
+			if !isInt {
+				return nil, fmt.Errorf("%v of %v pdu is a %T, want an int, can't encode", name, obj.Header.CommandId, value)
 			}
-
-			if mandatoryParam["type"].(string) == "xstring" {
-				bodyBytes = append(bodyBytes, shortMessage...)
+			bodyBytes, err = appendFixedWidthInteger(bodyBytes, integer, mandatoryParam["max"].(int))
+			if err != nil {
+				return nil, fmt.Errorf("%v of %v pdu is %v, %w, can't encode", name, obj.Header.CommandId, value, err)
 			}
-		} else {
-			err = fmt.Errorf("%v of %v pdu missing, can't encode", mandatoryParam["name"].(string), obj.Header.CommandId)
-			return
+		case "xstring":
+			bodyBytes = append(bodyBytes, shortMessage...)
 		}
 	}
-	return
+	return bodyBytes, nil
 }
 
 // encodeShortMessage returns short_message's bytes and the sm_length to send with them:
