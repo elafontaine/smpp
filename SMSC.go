@@ -1,8 +1,10 @@
 package smpp
 
 import (
+	"context"
 	"errors"
 	"net"
+	"sync"
 	"sync/atomic"
 )
 
@@ -21,9 +23,10 @@ type SMSC struct {
 	NewConnChan     chan net.Conn
 	NewEsmeChan     chan *ESME
 	RemoveEsmeChan  chan *ESME
-	RemoveDoneChan  chan bool
 	SystemId        string
 	Password        string
+	connections     sync.WaitGroup // one per connection still running; only the control loop adds
+	loopDone        chan struct{}  // closed once the control loop has returned
 }
 
 func NewSMSC(listeningSocket *net.Listener, SystemId string, Password string) (s *SMSC) {
@@ -34,7 +37,7 @@ func NewSMSC(listeningSocket *net.Listener, SystemId string, Password string) (s
 		NewConnChan:     make(chan net.Conn),
 		NewEsmeChan:     make(chan *ESME),
 		RemoveEsmeChan:  make(chan *ESME),
-		RemoveDoneChan:  make(chan bool),
+		loopDone:        make(chan struct{}),
 		SystemId:        SystemId,
 		Password:        Password,
 	}
@@ -53,13 +56,15 @@ func (smsc *SMSC) acceptNewConnectionFromSMSC() (*ESME, error) {
 	return e, nil
 }
 
+// smscControlLoop is the only writer of the ESME list. It never waits on a connection.
 func (s *SMSC) smscControlLoop() {
+	defer close(s.loopDone)
 	for {
 		select {
 		case serverConnectionSocket := <-s.NewConnChan:
 			s.createAndAppendNewEsme(serverConnectionSocket)
 		case e := <-s.RemoveEsmeChan:
-			s._closeAndRemoveEsme(e)
+			s.removeFromList(e)
 		case <-s.State.Done():
 			return
 		}
@@ -71,8 +76,23 @@ func (smsc *SMSC) createAndAppendNewEsme(serverConnectionSocket net.Conn) {
 	e.CommandFunctions["bind_receiver"] = smsc.handleBindOperation
 	e.CommandFunctions["bind_transceiver"] = smsc.handleBindOperation
 	e.CommandFunctions["bind_transmitter"] = smsc.handleBindOperation
+	smsc.connections.Add(1) // in the control loop: Shutdown waits only once the loop has returned
+	go smsc.watchConnection(e)
 	appendNewEsmeToSMSC(smsc, e)
 	smsc.NewEsmeChan <- e
+}
+
+// watchConnection closes e when its connection ends or when the SMSC closes, whichever comes
+// first, then drops it from the list. Closing e waits only for e's own handlers, so a busy
+// connection never holds up the others or the SMSC.
+func (smsc *SMSC) watchConnection(e *ESME) {
+	defer smsc.connections.Done()
+	select {
+	case <-e.state.Done():
+	case <-smsc.State.Done():
+	}
+	e.Close()
+	smsc.removeEsme(e)
 }
 
 func appendNewEsmeToSMSC(smsc *SMSC, e *ESME) {
@@ -81,19 +101,16 @@ func appendNewEsmeToSMSC(smsc *SMSC, e *ESME) {
 	smsc.ESMEs.Store(new_connections)
 }
 
-// closeAndRemoveEsme has the control loop close e and drop it from the list. Once the SMSC is
-// closed there's no loop and no list left: e is just closed.
-func (s *SMSC) closeAndRemoveEsme(e *ESME) {
+// removeEsme has the control loop drop e from the list. Once the SMSC is closed there's no loop
+// and nobody keeps the list.
+func (s *SMSC) removeEsme(e *ESME) {
 	select {
 	case s.RemoveEsmeChan <- e:
-		<-s.RemoveDoneChan
 	case <-s.State.Done():
-		e.Close()
 	}
 }
 
-func (s *SMSC) _closeAndRemoveEsme(e *ESME) {
-	e.Close()
+func (s *SMSC) removeFromList(e *ESME) {
 	old_connections := s.ESMEs.Load().([]*ESME)
 	new_connections := []*ESME{}
 	for _, x := range old_connections {
@@ -102,7 +119,6 @@ func (s *SMSC) _closeAndRemoveEsme(e *ESME) {
 		}
 	}
 	s.ESMEs.Store(new_connections)
-	s.RemoveDoneChan <- true
 }
 
 func (s *SMSC) GetNumberOfConnection() int {
@@ -113,27 +129,29 @@ func (s *SMSC) Start() {
 	go s.acceptAllNewConnection()
 }
 
+// Close stops the SMSC: it accepts no more connections and every connection is told to close.
+// It returns right away, without waiting for them; Shutdown waits.
 func (s *SMSC) Close() {
-	esme_chan := s.getEsmeFromChannel()
-	for conn := range esme_chan { //read
-		if conn.GetEsmeState() != CLOSED {
-			s.closeAndRemoveEsme(conn)
-		}
-	}
-	s.listeningSocket.Close()
 	s.State.SetState(CLOSED)
+	s.listeningSocket.Close()
 }
 
-func (s *SMSC) getEsmeFromChannel() <-chan *ESME {
-	newChannel := make(chan *ESME)
+// Shutdown closes the SMSC (see Close) and waits until its control loop and every connection
+// are gone, or until ctx ends.
+func (s *SMSC) Shutdown(ctx context.Context) error {
+	s.Close()
+	gone := make(chan struct{})
 	go func() {
-		copy := s.ESMEs.Load().([]*ESME)
-		for _, e := range copy {
-			newChannel <- e
-		}
-		close(newChannel)
+		<-s.loopDone // after this no connection can be added, so Wait can't race an Add
+		s.connections.Wait()
+		close(gone)
 	}()
-	return newChannel
+	select {
+	case <-gone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (s *SMSC) acceptAllNewConnection() {
@@ -146,12 +164,7 @@ func (s *SMSC) acceptAllNewConnection() {
 			}
 			continue
 		}
-		// Run the connection's read loop, which answers through the ESME's CommandFunctions;
-		// once the connection is gone, close it and drop it from the list.
-		go func() {
-			defer s.closeAndRemoveEsme(e)
-			e.StartControlLoop()
-			e.wg.Wait()
-		}()
+		e.StartControlLoop() // answers through the ESME's CommandFunctions; watchConnection cleans up
+
 	}
 }

@@ -166,8 +166,8 @@ func TestConnectionCleanupDoesntWaitForAClosedSmsc(t *testing.T) {
 		esme.Close() // the SMSC side notices and starts its cleanup...
 		smsc.Close() // ...while the SMSC closes
 	}
-	if !eventually(func() bool { return goroutinesIn("(*SMSC).closeAndRemoveEsme(") == 0 }) {
-		t.Errorf("%d connection cleanups stuck waiting for a closed SMSC", goroutinesIn("(*SMSC).closeAndRemoveEsme("))
+	if !eventually(func() bool { return goroutinesIn("(*SMSC).removeEsme(") == 0 }) {
+		t.Errorf("%d connection cleanups stuck waiting for a closed SMSC", goroutinesIn("(*SMSC).removeEsme("))
 	}
 }
 

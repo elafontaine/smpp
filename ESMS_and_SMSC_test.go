@@ -141,7 +141,11 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 
 func CloseAndAssertClean(s *SMSC, e *ESME, t *testing.T) {
 	e.Close()
-	s.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.Shutdown(ctx); err != nil {
+		t.Errorf("SMSC Shutdown() error = %v", err)
+	}
 
 	AssertSmscIsClosedAndClean(s, t)
 }
