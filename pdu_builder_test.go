@@ -2,7 +2,6 @@ package smpp
 
 import (
 	"encoding/hex"
-	"fmt"
 	"reflect"
 	"testing"
 )
@@ -295,13 +294,11 @@ func TestPDUObjectsShouldBeDifferentInMemoryToAvoidSharedObjects(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			first := tt.builder()
-			before := fmt.Sprint(first.Body.MandatoryParameter)
-
 			second := tt.builder()
-			second.Body.MandatoryParameter["changed_on_the_second_"+tt.name] = true
+			second.Body.MandatoryParameter["only_on_the_second"] = true
 
-			if after := fmt.Sprint(first.Body.MandatoryParameter); after != before {
-				t.Errorf("changing the second %s PDU changed the first one:\nbefore %s\nafter  %s", tt.name, before, after)
+			if _, shared := first.Body.MandatoryParameter["only_on_the_second"]; shared {
+				t.Errorf("a field set on the second %s PDU appeared on the first: they share one map", tt.name)
 			}
 		})
 	}
