@@ -1,12 +1,12 @@
 package smpp
 
-// State holds the session state of an ESME (OPEN, BOUND_TX, ..., CLOSED).
+// sessionState holds the session state of an ESME (OPEN, BOUND_TX, ..., CLOSED).
 //
 // A goroutine owns the state. It hands the current state to every reader that asks, and
 // applies transitions one at a time. Readers never wait for a transition: while one is
 // deciding the next state, they get the last one. Once the state is CLOSED the goroutine
 // stops, and readers get CLOSED from Done.
-type State struct {
+type sessionState struct {
 	reads       chan string     // the owner sends the current state to each reader
 	transitions chan transition // requests to change the state, applied one at a time
 	done        chan struct{}   // closed when the state becomes CLOSED
@@ -18,13 +18,13 @@ type transition struct {
 	commit chan string
 }
 
-func NewESMEState(state string) *State {
-	s := &State{reads: make(chan string), transitions: make(chan transition), done: make(chan struct{})}
+func newSessionState(state string) *sessionState {
+	s := &sessionState{reads: make(chan string), transitions: make(chan transition), done: make(chan struct{})}
 	go s.run(state)
 	return s
 }
 
-func (s *State) run(state string) {
+func (s *sessionState) run(state string) {
 	transitions := s.transitions
 	var commit chan string // the transition in progress, nil when there is none
 	for {
@@ -49,8 +49,8 @@ func (s *State) run(state string) {
 // terminal: f is not called and the state does not change.
 //
 // Other transitions wait while f runs (reads don't), so f must be quick and must not call
-// Transition or SetState on the same State. If f panics the state stays unchanged.
-func (s *State) Transition(f func(current string) (next string)) (previous, next string) {
+// Transition or SetState on the same sessionState. If f panics the state stays unchanged.
+func (s *sessionState) Transition(f func(current string) (next string)) (previous, next string) {
 	// commit is unbuffered: Transition returns only once the owner has the next state, so a
 	// read made after it sees that state.
 	t := transition{lease: make(chan string), commit: make(chan string)}
@@ -68,12 +68,12 @@ func (s *State) Transition(f func(current string) (next string)) (previous, next
 
 // Done returns a channel that's closed once the state becomes CLOSED, so a select can wait
 // for it.
-func (s *State) Done() <-chan struct{} {
+func (s *sessionState) Done() <-chan struct{} {
 	return s.done
 }
 
 // GetState returns the current state.
-func (s *State) GetState() string {
+func (s *sessionState) GetState() string {
 	select {
 	case state := <-s.reads:
 		return state
@@ -83,6 +83,6 @@ func (s *State) GetState() string {
 }
 
 // SetState replaces the current state. It is ignored once the state is CLOSED.
-func (s *State) SetState(desired string) {
+func (s *sessionState) SetState(desired string) {
 	s.Transition(func(string) string { return desired })
 }

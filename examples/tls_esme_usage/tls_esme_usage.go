@@ -24,7 +24,7 @@ func main() {
 		InsecureSkipVerify:          true,
 	}
 	serversocket, _ := tls.Listen(connType, "0.0.0.0:0", &config)
-	smsc := NewSMSC(&serversocket, "MySystemId", "Password")
+	smsc := NewSMSC(serversocket, "MySystemId", "Password")
 
 	esme_socket, err := net.Dial(connType,serversocket.Addr().String())
 	esme_tls_socket := tls.Client(esme_socket,&config)

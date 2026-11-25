@@ -20,7 +20,7 @@ func smscWithABusyConnection(t *testing.T, n int) (smsc *SMSC, smscSides []*ESME
 	t.Cleanup(release) // a failing test must not leave the handler stuck
 	var clients []*ESME
 	for i := 0; i < n; i++ {
-		client, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
+		client, err := InstantiateEsme(connType, smsc.listener.Addr().String())
 		if err != nil {
 			t.Fatalf("InstantiateEsme() error = %v", err)
 		}

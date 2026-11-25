@@ -38,7 +38,7 @@ func sendEnquireLinksToEsme(t *testing.T, windowSize, n int, h *blockingHandler)
 	esme.WindowSize = windowSize
 	esme.CommandFunctions["enquire_link"] = h.handle
 	esme.StartControlLoop()
-	smscSide := smsc.ESMEs.Load().([]*ESME)[0]
+	smscSide := smsc.Connections()[0]
 	var responses []<-chan Response
 	for i := 0; i < n; i++ {
 		r, err := smscSide.SendAsync(NewEnquireLink())
@@ -116,7 +116,7 @@ func TestHandlerCanSendAndWaitForAResponse(t *testing.T) {
 	}
 	esme.StartControlLoop()
 
-	smscSide := smsc.ESMEs.Load().([]*ESME)[0]
+	smscSide := smsc.Connections()[0]
 	resp, err := smscSide.Send(contextWithin(t, 3*time.Second), NewDeliverSM().WithMessage("Hello"))
 	if err != nil {
 		t.Fatalf("Send() error = %v", err)

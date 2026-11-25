@@ -38,7 +38,7 @@ type Response struct {
 // managing their ESMEs to connect to an SMPP server (SMSC).
 type ESME struct {
 	clientSocket     net.Conn
-	state            *State
+	state            *sessionState
 	sequenceNumber   int32
 	CommandFunctions map[string]func(*ESME, PDU) error
 	WindowSize       int // most requests handled at once; 0: no limit. Set it before the loop starts.
@@ -63,8 +63,10 @@ const (
 	CLOSED    = "CLOSED"
 )
 
-func InstantiateEsme(serverAddress net.Addr, connType string) (esme *ESME, err error) {
-	clientSocket, err := net.Dial(connType, serverAddress.String())
+// InstantiateEsme connects to an SMSC with net.Dial (e.g. "tcp", "unix"). For TLS or any other
+// connection, make it yourself and use NewEsme.
+func InstantiateEsme(network, address string) (*ESME, error) {
+	clientSocket, err := net.Dial(network, address)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +76,7 @@ func InstantiateEsme(serverAddress net.Addr, connType string) (esme *ESME, err e
 func NewEsme(clientSocket net.Conn) (e *ESME) {
 	e = &ESME{
 		clientSocket:     clientSocket,
-		state:            NewESMEState(OPEN),
+		state:            newSessionState(OPEN),
 		CommandFunctions: map[string]func(*ESME, PDU) error{},
 		defaults:         map[string]interface{}{},
 		writes:           make(chan writeRequest),

@@ -105,7 +105,7 @@ func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
 
 	esme.StartControlLoop()
 
-	smsc_esme := smsc.ESMEs.Load().([]*ESME)[0]
+	smsc_esme := smsc.Connections()[0]
 	pdu, smsc_err := smsc_esme.Send(contextWithin(t, time.Second), NewDeliverSM().WithMessage("Hello"))
 	if smsc_err != nil {
 		t.Errorf("Something failed while waiting for client to answer to server: %v", smsc_err)
@@ -136,7 +136,7 @@ func GetSmscAndConnectEsme(t *testing.T) (*SMSC, *ESME, net.Conn) {
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
 	}
-	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
+	Esme, err := InstantiateEsme(connType, smsc.listener.Addr().String())
 	if err != nil {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
@@ -144,7 +144,7 @@ func GetSmscAndConnectEsme(t *testing.T) (*SMSC, *ESME, net.Conn) {
 	if err != nil {
 		t.Errorf("couldn't accept client to server successfully: %v", err)
 	}
-	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0].clientSocket
+	smsc_connection := smsc.Connections()[0].clientSocket
 	return smsc, Esme, smsc_connection
 }
 

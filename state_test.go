@@ -8,7 +8,7 @@ import (
 )
 
 func TestStateStartsWithItsInitialValue(t *testing.T) {
-	s := NewESMEState("OPEN")
+	s := newSessionState("OPEN")
 	defer s.SetState(CLOSED) // stops the state\'s goroutine
 	if got := s.GetState(); got != "OPEN" {
 		t.Errorf("GetState() = %q, want OPEN", got)
@@ -16,7 +16,7 @@ func TestStateStartsWithItsInitialValue(t *testing.T) {
 }
 
 func TestSetStateIsVisibleToGetState(t *testing.T) {
-	s := NewESMEState("OPEN")
+	s := newSessionState("OPEN")
 	defer s.SetState(CLOSED) // stops the state\'s goroutine
 	s.SetState("BOUND_TX")
 	if got := s.GetState(); got != "BOUND_TX" {
@@ -27,7 +27,7 @@ func TestSetStateIsVisibleToGetState(t *testing.T) {
 // Each Transition sees the state left by the previous one, so concurrent
 // read-modify-write sequences never lose an update (run with -race).
 func TestTransitionIsAtomic(t *testing.T) {
-	s := NewESMEState("0")
+	s := newSessionState("0")
 	defer s.SetState(CLOSED) // stops the state\'s goroutine
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -49,7 +49,7 @@ func TestTransitionIsAtomic(t *testing.T) {
 // The case that matters for SMPP: of several concurrent binds, only one may
 // move the session from OPEN to bound.
 func TestOnlyOneConcurrentBindWins(t *testing.T) {
-	s := NewESMEState("OPEN")
+	s := newSessionState("OPEN")
 	defer s.SetState(CLOSED) // stops the state\'s goroutine
 	const binds = 10
 	won := make(chan bool, binds)
@@ -81,7 +81,7 @@ func TestOnlyOneConcurrentBindWins(t *testing.T) {
 }
 
 func TestClosedIsTerminal(t *testing.T) {
-	s := NewESMEState("BOUND_TX")
+	s := newSessionState("BOUND_TX")
 	defer s.SetState(CLOSED) // stops the state\'s goroutine
 	s.SetState(CLOSED)
 	s.SetState(CLOSED) // safe to repeat
@@ -97,7 +97,7 @@ func TestClosedIsTerminal(t *testing.T) {
 }
 
 func TestStateIsHandedBackWhenTheCallbackPanics(t *testing.T) {
-	s := NewESMEState("OPEN")
+	s := newSessionState("OPEN")
 	defer s.SetState(CLOSED) // stops the state\'s goroutine
 	func() {
 		defer func() { recover() }()
@@ -128,7 +128,7 @@ func TestStateIsHandedBackWhenTheCallbackPanics(t *testing.T) {
 
 // Done lets a select wait for CLOSED instead of polling GetState.
 func TestDoneIsClosedWhenTheStateBecomesClosed(t *testing.T) {
-	s := NewESMEState(OPEN)
+	s := newSessionState(OPEN)
 	defer s.SetState(CLOSED) // stops the state\'s goroutine
 	s.SetState(BOUND_TX)
 	select {
@@ -149,7 +149,7 @@ func TestDoneIsClosedWhenTheStateBecomesClosed(t *testing.T) {
 // Reads are answered by the state's own goroutine: they get the last state right away, even
 // while a transition is still deciding the next one.
 func TestGetStateDoesntWaitForATransitionInProgress(t *testing.T) {
-	s := NewESMEState(OPEN)
+	s := newSessionState(OPEN)
 	defer s.SetState(CLOSED) // stops the state\'s goroutine
 	inTransition, release := make(chan struct{}), make(chan struct{})
 	go s.Transition(func(string) string {

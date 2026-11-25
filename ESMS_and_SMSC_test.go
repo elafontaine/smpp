@@ -45,7 +45,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			if state := Esme.GetEsmeState(); state != tt.wantBoundAs {
 				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, LastError)
 			}
-			if Esme.state.GetState() != smsc.ESMEs.Load().([]*ESME)[0].state.GetState() {
+			if Esme.state.GetState() != smsc.Connections()[0].state.GetState() {
 				t.Errorf("The state isn't the same on the SMSC connection and ESME")
 			}
 		})
@@ -125,7 +125,7 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			Esme.state.SetState(tt.args.bind_state)
-			smsc.ESMEs.Load().([]*ESME)[0].state.SetState(tt.args.bind_state)
+			smsc.Connections()[0].state.SetState(tt.args.bind_state)
 			actualPdu, LastError := Esme.Send(contextWithin(t, time.Second), tt.args.send_pdu)
 			if LastError != nil {
 				t.Fatalf("Failed to get an answer : %v", LastError)
@@ -160,7 +160,7 @@ func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_ri
 
 func GetSmscSimulatorServer() (smsc *SMSC, err error) {
 	serverSocket, err := net.Listen(connType, connhost+":"+connport)
-	smsc = NewSMSC(&serverSocket, validSystemID, validPassword)
+	smsc = NewSMSC(serverSocket, validSystemID, validPassword)
 	return smsc, err
 }
 
@@ -175,12 +175,12 @@ func connectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME) {
 	if err != nil {
 		t.Errorf("couldn't start server successfully: %v", err)
 	}
-	Esme, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
+	Esme, err := InstantiateEsme(connType, smsc.listener.Addr().String())
 	if err != nil {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
-	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0].clientSocket
+	smsc_connection := smsc.Connections()[0].clientSocket
 	return smsc, smsc_connection, Esme
 }
 

@@ -17,7 +17,7 @@ func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
 func TestClosingOneConnectionCloseOnSMSCSide(t *testing.T) {
 	smsc, _, Esme := connectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
-	smsc_connection := smsc.ESMEs.Load().([]*ESME)[0]
+	smsc_connection := smsc.Connections()[0]
 
 	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
 	Esme.Close()
@@ -35,7 +35,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 	smsc, _, Esme := connectEsmeAndSmscTogether(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
-	Esme2, err := InstantiateEsme(smsc.listeningSocket.Addr(), connType)
+	Esme2, err := InstantiateEsme(connType, smsc.listener.Addr().String())
 	if err != nil {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
@@ -62,7 +62,7 @@ func AssertSmscIsClosedAndClean(smsc *SMSC, t *testing.T) {
 }
 
 func assertAllRemainingConnectionsAreClosed(smsc *SMSC, t *testing.T) {
-	for _, conn := range smsc.ESMEs.Load().([]*ESME) {
+	for _, conn := range smsc.Connections() {
 		if conn.GetEsmeState() != CLOSED {
 			t.Error("At least one connection wasn't closed!")
 		}
@@ -70,7 +70,7 @@ func assertAllRemainingConnectionsAreClosed(smsc *SMSC, t *testing.T) {
 }
 
 func assertListenerIsClosed(smsc *SMSC, t *testing.T) {
-	if err := smsc.listeningSocket.Close(); err == nil {
+	if err := smsc.listener.Close(); err == nil {
 		t.Errorf("The listening socket wasn't closed! %v", err)
 	}
 }

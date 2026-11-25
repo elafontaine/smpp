@@ -113,10 +113,10 @@ func main() {
 	}(receivedMessageChannel)
 
 	serversocket, _ := net.Listen(connType, "0.0.0.0:0")
-	smsc := NewSMSC(&serversocket, "MySystemId", "Password")
+	smsc := NewSMSC(serversocket, "MySystemId", "Password")
 
 	// Client side example (using the prepared server side)
-	esme, err := InstantiateEsme(serversocket.Addr(), connType)
+	esme, err := InstantiateEsme(connType, serversocket.Addr().String())
 	if err != nil {
 		fmt.Print(fmt.Errorf("Issue starting ESME connection to server! : %v", err))
 		os.Exit(1)
@@ -139,7 +139,7 @@ func main() {
 
 
 
-	server_smpp_conn_obj := smsc.ESMEs.Load().([]*ESME)[0] // Have the server connection object send the deliver_sm
+	server_smpp_conn_obj := smsc.Connections()[0] // Have the server connection object send the deliver_sm
 	step1(server_smpp_conn_obj)
 
 	fmt.Println("Reached the end of the program!")

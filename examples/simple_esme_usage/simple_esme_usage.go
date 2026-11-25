@@ -14,10 +14,10 @@ func main() {
 	// Server side preparations
 	connType := "tcp"
 	serversocket, _ := net.Listen(connType, "0.0.0.0:0")
-	smsc := NewSMSC(&serversocket, "MySystemId", "Password")
+	smsc := NewSMSC(serversocket, "MySystemId", "Password")
 
 	// Client side example (using the prepared server side)
-	esme, err := InstantiateEsme(serversocket.Addr(), connType)
+	esme, err := InstantiateEsme(connType, serversocket.Addr().String())
 	if err != nil {
 		fmt.Print(fmt.Errorf("Issue starting ESME connection to server! : %v", err))
 		os.Exit(1)
