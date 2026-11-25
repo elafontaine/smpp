@@ -8,22 +8,22 @@ import (
 )
 
 func TestWeCloseAllConnectionsOnShutdown(t *testing.T) {
-	smsc, _, Esme := connectEsmeAndSmscTogether(t)
+	smsc, Esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	smsc.Close()
 }
 
 func TestClosingOneConnectionCloseOnSMSCSide(t *testing.T) {
-	smsc, _, Esme := connectEsmeAndSmscTogether(t)
+	smsc, Esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 	smsc_connection := smsc.Connections()[0]
 
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
+	waitForConnections(t, smsc, 1)
 	Esme.Close()
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 0)
-	for smsc_connection.GetEsmeState() != CLOSED {
-		time.Sleep(200 * time.Millisecond)
+	waitForConnections(t, smsc, 0)
+	if !eventually(func() bool { return smsc_connection.GetEsmeState() == CLOSED }) {
+		t.Fatal("the SMSC side of the connection never closed")
 	}
 	closeResult := smsc_connection.clientSocket.Close()
 	if smsc_connection.GetEsmeState() != CLOSED || !errors.Is(closeResult, net.ErrClosed) {
@@ -32,7 +32,7 @@ func TestClosingOneConnectionCloseOnSMSCSide(t *testing.T) {
 }
 
 func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
-	smsc, _, Esme := connectEsmeAndSmscTogether(t)
+	smsc, Esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	Esme2, err := InstantiateEsme(connType, smsc.listener.Addr().String())
@@ -40,7 +40,7 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 		t.Errorf("couldn't connect client to server successfully: %v", err)
 	}
 	defer Esme2.Close()
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 2)
+	waitForConnections(t, smsc, 2)
 	resp_pdu, err2 := Esme2.BindTransmitter(contextWithin(t, time.Second), "SystemId", "Password")
 	if err2 != nil {
 		t.Errorf("Couldn't write to the socket PDU: %v", err2)
@@ -51,8 +51,8 @@ func TestCanWeAvoidCallingAcceptExplicitlyOnEveryConnection(t *testing.T) {
 		WithSMPPError(ESME_ROK)
 	expectedBuf.Header.CommandLength = 25
 	comparePdu(resp_pdu, expectedBuf, t)
-	if !assertWeHaveActiveConnections(smsc, 2) {
-		t.Errorf("We didn't have the expected amount of connections!")
+	if n := smsc.GetNumberOfConnection(); n != 2 {
+		t.Errorf("the SMSC has %d connections, want 2", n)
 	}
 }
 

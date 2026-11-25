@@ -11,10 +11,7 @@ import (
 // connection's SMSC side is in the middle of handling an enquire_link: its handler doesn't
 // return until release is called.
 func smscWithABusyConnection(t *testing.T, n int) (smsc *SMSC, smscSides []*ESME, release func()) {
-	smsc, err := GetSmscSimulatorServer()
-	if err != nil {
-		t.Fatalf("GetSmscSimulatorServer() error = %v", err)
-	}
+	smsc = newSmsc(t)
 	handling, released := make(chan struct{}), make(chan struct{})
 	release = sync.OnceFunc(func() { close(released) })
 	t.Cleanup(release) // a failing test must not leave the handler stuck

@@ -32,7 +32,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, _, Esme := connectEsmeAndSmscTogether(t)
+			smsc, Esme := connectWithRunningSmsc(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			resp_pdu, LastError := tt.args.bind_pdu(Esme, contextWithin(t, time.Second), validSystemID, validPassword)
@@ -45,7 +45,7 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 			if state := Esme.GetEsmeState(); state != tt.wantBoundAs {
 				t.Errorf("We couldn't get the state for our connection ; state = %v, err = %v", state, LastError)
 			}
-			if Esme.state.GetState() != smsc.Connections()[0].state.GetState() {
+			if Esme.GetEsmeState() != smsc.Connections()[0].GetEsmeState() {
 				t.Errorf("The state isn't the same on the SMSC connection and ESME")
 			}
 		})
@@ -53,9 +53,6 @@ func TestEsmeCanBindAsDifferentTypesWithSmsc(t *testing.T) {
 }
 
 func TestReactionFromSmscOnFirstPDUForDefaultBehaviour(t *testing.T) {
-	bindReceiver := NewBindReceiver().WithSystemId(validSystemID).WithPassword(validPassword)
-	bindTransceiver := NewBindTransceiver().WithSystemId(validSystemID).WithPassword(validPassword)
-	bindTransmitter := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword)
 	bindWrongUserName := NewBindReceiver().WithSystemId(invalidUserName).WithPassword(validPassword)
 	SubmitSMUnbound := NewSubmitSM()
 	type args struct {
@@ -66,15 +63,12 @@ func TestReactionFromSmscOnFirstPDUForDefaultBehaviour(t *testing.T) {
 		args         args
 		wantSMSCResp PDU
 	}{
-		{"TestEsmeCanBindWithSmscAsAReceiver", args{&bindReceiver}, NewBindReceiverResp().WithSystemId(validSystemID)},
-		{"TestEsmeCanBindWithSmscAsATransmitter", args{&bindTransmitter}, NewBindTransmitterResp().WithSystemId(validSystemID)},
-		{"TestEsmeCanBindWithSmscAsATransceiver", args{&bindTransceiver}, NewBindTransceiverResp().WithSystemId(validSystemID)},
 		{"TestSMSCRejectWithWrongUserName", args{&bindWrongUserName}, NewBindReceiverResp().WithSMPPError(ESME_RBINDFAIL).WithSystemId(invalidUserName)},
 		{"TestSubmitSMOnNonBoundedBindIsReturningInvalidBindStatus", args{&SubmitSMUnbound}, NewSubmitSMResp().WithSMPPError(ESME_RINVBNDSTS).WithMessageId("")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, _, Esme := connectEsmeAndSmscTogether(t)
+			smsc, Esme := connectWithRunningSmsc(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			pduResp, err := Esme.Send(contextWithin(t, time.Second), *tt.args.bind_pdu)
@@ -121,7 +115,7 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v", tt.name), func(t *testing.T) {
-			smsc, _, Esme := connectEsmeAndSmscTogether(t)
+			smsc, Esme := connectWithRunningSmsc(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
 			Esme.state.SetState(tt.args.bind_state)
@@ -150,42 +144,50 @@ func CloseAndAssertClean(s *SMSC, e *ESME, t *testing.T) {
 	AssertSmscIsClosedAndClean(s, t)
 }
 
-func assertWeHaveActiveConnections(smsc *SMSC, number_of_connections int) (is_right_number bool) {
-	if smsc.GetNumberOfConnection() == number_of_connections {
-		return true
-	} else {
-		return false
+// newSmsc returns an SMSC listening on localhost, not accepting connections yet.
+func newSmsc(t *testing.T) *SMSC {
+	t.Helper()
+	listener, err := net.Listen(connType, connhost+":"+connport)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
 	}
+	return NewSMSC(listener, validSystemID, validPassword)
 }
 
-func GetSmscSimulatorServer() (smsc *SMSC, err error) {
-	serverSocket, err := net.Listen(connType, connhost+":"+connport)
-	smsc = NewSMSC(serverSocket, validSystemID, validPassword)
-	return smsc, err
-}
-
-func StartSmscSimulatorServerAndAccept() (smsc *SMSC, err error) {
-	smsc, err = GetSmscSimulatorServer()
+// connectWithRunningSmsc starts an SMSC and connects an ESME to it: the SMSC side answers as it
+// would in use.
+func connectWithRunningSmsc(t *testing.T) (*SMSC, *ESME) {
+	t.Helper()
+	smsc := newSmsc(t)
 	smsc.Start()
-	return smsc, err
+	esme, err := InstantiateEsme(connType, smsc.listener.Addr().String())
+	if err != nil {
+		t.Fatalf("connecting: %v", err)
+	}
+	waitForConnections(t, smsc, 1)
+	return smsc, esme
 }
 
-func connectEsmeAndSmscTogether(t *testing.T) (*SMSC, net.Conn, *ESME) {
-	smsc, err := StartSmscSimulatorServerAndAccept()
+// connectWithSilentSmsc connects an ESME to an SMSC that isn't started: the connection is
+// accepted by hand and its SMSC side reads nothing. The test drives that side through the
+// returned socket.
+func connectWithSilentSmsc(t *testing.T) (*SMSC, *ESME, net.Conn) {
+	t.Helper()
+	smsc := newSmsc(t)
+	esme, err := InstantiateEsme(connType, smsc.listener.Addr().String())
 	if err != nil {
-		t.Errorf("couldn't start server successfully: %v", err)
+		t.Fatalf("connecting: %v", err)
 	}
-	Esme, err := InstantiateEsme(connType, smsc.listener.Addr().String())
+	smscSide, err := smsc.acceptNewConnectionFromSMSC()
 	if err != nil {
-		t.Errorf("couldn't connect client to server successfully: %v", err)
+		t.Fatalf("accepting: %v", err)
 	}
-	WaitForConnectionToBeEstablishedFromSmscSide(smsc, 1)
-	smsc_connection := smsc.Connections()[0].clientSocket
-	return smsc, smsc_connection, Esme
+	return smsc, esme, smscSide.clientSocket
 }
 
-func WaitForConnectionToBeEstablishedFromSmscSide(smsc *SMSC, count int) {
-	for smsc.GetNumberOfConnection() != count {
-		time.Sleep(0)
+func waitForConnections(t *testing.T, smsc *SMSC, count int) {
+	t.Helper()
+	if !eventually(func() bool { return smsc.GetNumberOfConnection() == count }) {
+		t.Fatalf("the SMSC has %d connections, want %d", smsc.GetNumberOfConnection(), count)
 	}
 }

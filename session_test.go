@@ -12,7 +12,7 @@ import (
 )
 
 func TestSendReturnsTheMatchingResponse(t *testing.T) {
-	smsc, _, esme := connectEsmeAndSmscTogether(t)
+	smsc, esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 
 	resp, err := esme.Send(contextWithin(t, time.Second), NewEnquireLink())
@@ -27,7 +27,7 @@ func TestSendReturnsTheMatchingResponse(t *testing.T) {
 // The default submit_sm handler must answer with the request's sequence_number, otherwise the
 // response never reaches the request waiting for it.
 func TestSubmitSmRespUsesTheRequestSequenceNumber(t *testing.T) {
-	smsc, _, esme := connectEsmeAndSmscTogether(t)
+	smsc, esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 	if _, err := esme.BindTransmitter(contextWithin(t, time.Second), validSystemID, validPassword); err != nil {
 		t.Fatalf("BindTransmitter() error = %v", err)
@@ -44,7 +44,7 @@ func TestSubmitSmRespUsesTheRequestSequenceNumber(t *testing.T) {
 
 // A PDU that can't be encoded is reported to the caller right away and never reaches the wire.
 func TestSendAsyncReturnsEncodingErrorsRightAway(t *testing.T) {
-	smsc, esme, smscConnection := GetSmscAndConnectEsme(t)
+	smsc, esme, smscConnection := connectWithSilentSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 
 	if _, err := esme.SendAsync(NewSubmitSM().WithDataCoding(256)); err == nil {
@@ -57,7 +57,7 @@ func TestSendAsyncReturnsEncodingErrorsRightAway(t *testing.T) {
 }
 
 func TestResponsesAreMatchedBySequenceNumber(t *testing.T) {
-	smsc, esme, smscConnection := GetSmscAndConnectEsme(t) // the SMSC side doesn't answer: the test does
+	smsc, esme, smscConnection := connectWithSilentSmsc(t) // the SMSC side doesn't answer: the test does
 	defer CloseAndAssertClean(smsc, esme, t)
 
 	first, err1 := esme.SendAsync(NewEnquireLink())
@@ -81,7 +81,7 @@ func TestResponsesAreMatchedBySequenceNumber(t *testing.T) {
 }
 
 func TestSendGivesUpWhenTheContextEnds(t *testing.T) {
-	smsc, esme, _ := GetSmscAndConnectEsme(t) // nobody answers
+	smsc, esme, _ := connectWithSilentSmsc(t) // nobody answers
 	defer CloseAndAssertClean(smsc, esme, t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -97,7 +97,7 @@ func TestSendGivesUpWhenTheContextEnds(t *testing.T) {
 }
 
 func TestClosingEsmeFailsPendingRequests(t *testing.T) {
-	smsc, esme, _ := GetSmscAndConnectEsme(t) // nobody answers
+	smsc, esme, _ := connectWithSilentSmsc(t) // nobody answers
 	defer CloseAndAssertClean(smsc, esme, t)
 
 	responses, err := esme.SendAsync(NewEnquireLink())

@@ -9,23 +9,23 @@ import (
 	"testing"
 )
 
-var invalidPduLength, _ = hex.DecodeString("0000001000")
-var pduLengthMissing, _ = hex.DecodeString("000000")
-var invalidCommandId, _ = hex.DecodeString("00000010000011150000000000000000")
-var invalidStatusId, _ = hex.DecodeString("0000001000000015008000ff00000000")
-var enquiryLinkFixture, _ = hex.DecodeString("00000010000000150000000000000000")
-var enquiryLinkRespFixture, _ = hex.DecodeString("00000010800000150000000000000000")
-var bindTransmitterFixture, _ = hex.DecodeString("0000001f000000020000000000000000746573740074657374000034000000")
-var bindTransmitterRespFixture, _ = hex.DecodeString("000000158000000200000000000000007465737400")
-var submitSmRespFixture, _ = hex.DecodeString("000000128000000400000000000000033100")
-var deliverSmOptionsFixture, _ = hex.DecodeString("0000003f000000050000000000000001000000000000353535353535313233340004000000000000000000001e000631313130370004270001020425000100")
-var submitSmHelloFixture, _ = hex.DecodeString(
+var invalidPduLength = mustHex("0000001000")
+var pduLengthMissing = mustHex("000000")
+var invalidCommandId = mustHex("00000010000011150000000000000000")
+var invalidStatusId = mustHex("0000001000000015008000ff00000000")
+var enquiryLinkFixture = mustHex("00000010000000150000000000000000")
+var enquiryLinkRespFixture = mustHex("00000010800000150000000000000000")
+var bindTransmitterFixture = mustHex("0000001f000000020000000000000000746573740074657374000034000000")
+var bindTransmitterRespFixture = mustHex("000000158000000200000000000000007465737400")
+var submitSmRespFixture = mustHex("000000128000000400000000000000033100")
+var deliverSmOptionsFixture = mustHex("0000003f000000050000000000000001000000000000353535353535313233340004000000000000000000001e000631313130370004270001020425000100")
+var submitSmHelloFixture = mustHex(
 	"00000030000000040000000000000001" + // header: length 48, submit_sm, ESME_ROK, sequence 1
 		"00" + "0000" + "00" + // service_type "", source_addr_ton, source_addr_npi, source_addr ""
 		"0000" + "3535353535353132333400" + // dest_addr_ton, dest_addr_npi, destination_addr "5555551234"
 		"000000" + "00" + "00" + // esm_class, protocol_id, priority_flag, schedule_delivery_time "", validity_period ""
 		"00000000" + "05" + "68656c6c6f") // registered_delivery, replace_if_present_flag, data_coding, sm_default_msg_id, sm_length 5, short_message "hello"
-var submitSmNihaoUcs2Fixture, _ = hex.DecodeString(
+var submitSmNihaoUcs2Fixture = mustHex(
 	"0000002f000000040000000000000001" + // header: length 47, submit_sm, ESME_ROK, sequence 1
 		"00" + "0000" + "00" + // service_type "", source_addr_ton, source_addr_npi, source_addr ""
 		"0000" + "3535353535353132333400" + // dest_addr_ton, dest_addr_npi, destination_addr "5555551234"
@@ -33,9 +33,9 @@ var submitSmNihaoUcs2Fixture, _ = hex.DecodeString(
 		"00000800" + "04" + // registered_delivery, replace_if_present_flag, data_coding 8 (UCS-2), sm_default_msg_id, sm_length 4
 		"4f60597d") // short_message "你好": 2 characters, 2 bytes each in UCS-2
 
-var optionalParameterReceiptMessageIdBytes, _ = hex.DecodeString("001e0006313131303700")
-var optionalParameterMessageStateBytes, _ = hex.DecodeString("0427000102")
-var optionalParameterDeliveryFailureReasonBytes, _ = hex.DecodeString("0425000100")
+var optionalParameterReceiptMessageIdBytes = mustHex("001e0006313131303700")
+var optionalParameterMessageStateBytes = mustHex("0427000102")
+var optionalParameterDeliveryFailureReasonBytes = mustHex("0425000100")
 
 var enquiryLinkObjHeader = Header{CommandLength: 16, CommandId: "enquire_link", CommandStatus: ESME_ROK, SequenceNumber: 0}
 var enquiryLinkRespObjHeader = Header{CommandLength: 16, CommandId: "enquire_link_resp", CommandStatus: ESME_ROK, SequenceNumber: 0}
@@ -382,10 +382,13 @@ func TestInvalidPduEncodingCases(t *testing.T) {
 	}
 }
 
-// SMPP integers are fixed-width big-endian: 128 and above must still take a single byte for sm_length.
-func TestEncodeShortMessageOf128BytesOrMore(t *testing.T) {
+// sm_length is a single byte. The first encoder wrote integers as Go varints, which match SMPP
+// only below 128: 127 is the last value both agree on, 128 the first they don't, and 254 is the
+// largest short_message. TestEncodePdu's short message can't tell the two encodings apart.
+func TestEncodeSmLengthAtTheVarintBoundary(t *testing.T) {
 	t.Parallel()
-	for _, length := range []int{127, 128, 200, 254} {
+	const fixedFields = 17 // submit_sm's mandatory fields up to and including sm_length, strings empty
+	for _, length := range []int{127, 128, 254} {
 		t.Run(fmt.Sprintf("short_message of %d bytes", length), func(t *testing.T) {
 			message := string(bytes.Repeat([]byte("a"), length))
 			pdu := NewSubmitSM().WithMessage(message).WithSequenceNumber(1)
@@ -394,7 +397,7 @@ func TestEncodeShortMessageOf128BytesOrMore(t *testing.T) {
 			if err != nil {
 				t.Fatalf("EncodePdu() error = %v", err)
 			}
-			if want := 16 + 17 + length; len(encoded) != want {
+			if want := 16 + fixedFields + length; len(encoded) != want {
 				t.Fatalf("EncodePdu() gave %d bytes, want %d", len(encoded), want)
 			}
 			decoded, err := ParsePdu(encoded)

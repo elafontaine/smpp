@@ -24,7 +24,7 @@ func TestUnprocessableRequestsAreAnsweredWithGenericNack(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			smsc, esme, smscConnection := GetSmscAndConnectEsme(t)
+			smsc, esme, smscConnection := connectWithSilentSmsc(t)
 			defer CloseAndAssertClean(smsc, esme, t)
 			esme.StartControlLoop()
 
@@ -52,7 +52,7 @@ func TestUnprocessableRequestsAreAnsweredWithGenericNack(t *testing.T) {
 
 // A response is never answered, not even one nobody waits for.
 func TestUnexpectedResponsesAreNotAnswered(t *testing.T) {
-	smsc, esme, smscConnection := GetSmscAndConnectEsme(t)
+	smsc, esme, smscConnection := connectWithSilentSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 	esme.StartControlLoop()
 

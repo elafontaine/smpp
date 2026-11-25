@@ -12,7 +12,7 @@ import (
 )
 
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
-	smsc, Esme, smsc_connection := GetSmscAndConnectEsme(t)
+	smsc, Esme, smsc_connection := connectWithSilentSmsc(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
@@ -29,7 +29,7 @@ func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 // Closing an ESME a second time must neither block nor panic. (That Close closes the socket
 // is checked by TestSendingOnClosedEsmeReturnError and TestReceivingOnClosingEsmeReturnError.)
 func TestClosingEsmeTwiceDoesntBlock(t *testing.T) {
-	smsc, _, Esme := connectEsmeAndSmscTogether(t)
+	smsc, Esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
 	Esme.Close()
@@ -37,7 +37,7 @@ func TestClosingEsmeTwiceDoesntBlock(t *testing.T) {
 }
 
 func TestSendingOnClosedEsmeReturnError(t *testing.T) {
-	smsc, Esme, _ := GetSmscAndConnectEsme(t)
+	smsc, Esme, _ := connectWithSilentSmsc(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 	Esme.Close()
 
@@ -48,7 +48,7 @@ func TestSendingOnClosedEsmeReturnError(t *testing.T) {
 }
 
 func TestAssigningEsmeSomeDefaultsWithBinding(t *testing.T) {
-	smsc, _, Esme := connectEsmeAndSmscTogether(t)
+	smsc, Esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 	esmeDefaults := map[string]interface{}{
 		"system_id": validSystemID,
@@ -63,7 +63,7 @@ func TestAssigningEsmeSomeDefaultsWithBinding(t *testing.T) {
 }
 
 func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
-	smsc, _, esme := connectEsmeAndSmscTogether(t)
+	smsc, esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 
 	all_seq_numbers := make(chan int)
@@ -88,7 +88,7 @@ func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 }
 
 func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {
-	smsc, esme, _ := GetSmscAndConnectEsme(t)
+	smsc, esme, _ := connectWithSilentSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 
 	message_ids := messageIdsGenerator(t)
@@ -129,23 +129,6 @@ func messageIdsGenerator(t *testing.T) chan string {
 		}
 	}()
 	return message_ids
-}
-
-func GetSmscAndConnectEsme(t *testing.T) (*SMSC, *ESME, net.Conn) {
-	smsc, err := GetSmscSimulatorServer() // this doesn't start the SMSC, hence why the manual accept
-	if err != nil {
-		t.Errorf("couldn't start server successfully: %v", err)
-	}
-	Esme, err := InstantiateEsme(connType, smsc.listener.Addr().String())
-	if err != nil {
-		t.Errorf("couldn't connect client to server successfully: %v", err)
-	}
-	_, err = smsc.acceptNewConnectionFromSMSC()
-	if err != nil {
-		t.Errorf("couldn't accept client to server successfully: %v", err)
-	}
-	smsc_connection := smsc.Connections()[0].clientSocket
-	return smsc, Esme, smsc_connection
 }
 
 func assertReceivedPduIsSameAsExpected(smsc_connection net.Conn, t *testing.T, expectedPDU PDU) {

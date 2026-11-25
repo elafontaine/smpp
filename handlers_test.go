@@ -34,7 +34,7 @@ func (h *blockingHandler) handle(e *ESME, p PDU) error {
 // sendEnquireLinksToEsme connects an ESME whose enquire_link handler is h, and has the SMSC
 // side send it n enquire_links.
 func sendEnquireLinksToEsme(t *testing.T, windowSize, n int, h *blockingHandler) (*SMSC, *ESME, []<-chan Response) {
-	smsc, _, esme := connectEsmeAndSmscTogether(t)
+	smsc, esme := connectWithRunningSmsc(t)
 	esme.WindowSize = windowSize
 	esme.CommandFunctions["enquire_link"] = h.handle
 	esme.StartControlLoop()
@@ -104,7 +104,7 @@ func TestWindowSizeLimitsConcurrentHandlers(t *testing.T) {
 
 // A handler runs outside the read loop, so it can itself send a request and wait for the answer.
 func TestHandlerCanSendAndWaitForAResponse(t *testing.T) {
-	smsc, _, esme := connectEsmeAndSmscTogether(t)
+	smsc, esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 	esme.CommandFunctions["deliver_sm"] = func(e *ESME, p PDU) error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -128,10 +128,7 @@ func TestHandlerCanSendAndWaitForAResponse(t *testing.T) {
 
 // The SMSC's control loop must end with the SMSC, not keep running (or spinning) after Close.
 func TestSmscControlLoopStopsOnClose(t *testing.T) {
-	smsc, err := GetSmscSimulatorServer()
-	if err != nil {
-		t.Fatalf("GetSmscSimulatorServer() error = %v", err)
-	}
+	smsc := newSmsc(t)
 	if !eventually(func() bool { return controlLoopsRunning() > 0 }) {
 		t.Fatal("no SMSC control loop running")
 	}
@@ -162,7 +159,7 @@ func goroutinesIn(frame string) int {
 // to hand its ESME to the SMSC's control loop, which is gone.
 func TestConnectionCleanupDoesntWaitForAClosedSmsc(t *testing.T) {
 	for i := 0; i < 20; i++ { // the leak needs the cleanup to lose a race with the close
-		smsc, _, esme := connectEsmeAndSmscTogether(t)
+		smsc, esme := connectWithRunningSmsc(t)
 		esme.Close() // the SMSC side notices and starts its cleanup...
 		smsc.Close() // ...while the SMSC closes
 	}
@@ -174,7 +171,7 @@ func TestConnectionCleanupDoesntWaitForAClosedSmsc(t *testing.T) {
 // A PDU whose command_id the ESME doesn't know gets a generic_nack (ESME_RINVCMDID) carrying
 // its sequence_number, and the connection stays up.
 func TestUnknownCommandIdIsAnsweredWithGenericNack(t *testing.T) {
-	smsc, esme, smscConnection := GetSmscAndConnectEsme(t)
+	smsc, esme, smscConnection := connectWithSilentSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 	esme.StartControlLoop()
 

@@ -77,39 +77,24 @@ func TestBindTransmitterWithBuilderPatternToPdu(t *testing.T) {
 	})
 }
 
-func TestNewBindTransmitterResp(t *testing.T) {
+func TestBindRespInstantiation(t *testing.T) {
 	t.Parallel()
-	expectedBindTransmitterResp := bindTransmitterRespObj
-	expectedBindTransmitterResp.Header.CommandLength = 0
-
-	actualResponse := NewBindTransmitterResp().WithSystemId("test")
-	t.Run("instantiating bind_transmitter_resp", func(t *testing.T) {
-		comparePdu(actualResponse, expectedBindTransmitterResp, t)
-	})
-}
-
-func TestNewBindTransceiverResp(t *testing.T) {
-	t.Parallel()
-	expectedBindTransceiverResp := bindTransmitterRespObj
-	expectedBindTransceiverResp.Header.CommandLength = 0
-	expectedBindTransceiverResp.Header.CommandId = "bind_transceiver_resp"
-
-	actualResponse := NewBindTransceiverResp().WithSystemId("test")
-	t.Run("instantiating bind_transceiver_resp", func(t *testing.T) {
-		comparePdu(actualResponse, expectedBindTransceiverResp, t)
-	})
-}
-
-func TestNewBindReceiverResp(t *testing.T) {
-	t.Parallel()
-	expectedBindReceiverResp := bindTransmitterRespObj
-	expectedBindReceiverResp.Header.CommandLength = 0
-	expectedBindReceiverResp.Header.CommandId = "bind_receiver_resp"
-
-	actualResponse := NewBindReceiverResp().WithSystemId("test")
-	t.Run("instantiating bind_receiver_resp", func(t *testing.T) {
-		comparePdu(actualResponse, expectedBindReceiverResp, t)
-	})
+	tests := []struct {
+		commandId string
+		builder   func() PDU
+	}{
+		{"bind_transmitter_resp", NewBindTransmitterResp},
+		{"bind_transceiver_resp", NewBindTransceiverResp},
+		{"bind_receiver_resp", NewBindReceiverResp},
+	}
+	for _, tt := range tests {
+		t.Run(tt.commandId, func(t *testing.T) {
+			want := bindTransmitterRespObj
+			want.Header.CommandLength = 0
+			want.Header.CommandId = tt.commandId
+			comparePdu(tt.builder().WithSystemId("test"), want, t)
+		})
+	}
 }
 
 func TestSubmitSMWithBuilderPatternToPdu(t *testing.T) {
@@ -323,6 +308,7 @@ func TestBuildingWithDefaults(t *testing.T) {
 }
 
 func comparePdu(actualPdu PDU, expectedPdu PDU, t *testing.T) {
+	t.Helper()
 	if got := actualPdu; !reflect.DeepEqual(got, expectedPdu) {
 		if !reflect.DeepEqual(got.Header, expectedPdu.Header) {
 			t.Errorf("Difference in the header structure")
