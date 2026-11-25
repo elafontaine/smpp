@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -34,22 +33,62 @@ type Response struct {
 	Err error
 }
 
-// ESME is the client side of the SMPP protocol.  Users should be
-// managing their ESMEs to connect to an SMPP server (SMSC).
+// ESME is one end of an SMPP session (the client side, or the SMSC's side of a connection).
+//
+// One goroutine, run, owns the session: its state, the requests waiting for a response, the
+// handlers running, closing. Everything else reaches it through events. Two pumps do the blocking
+// I/O (one reads the connection, one writes it) and own nothing; each received request runs its
+// handler in its own goroutine.
 type ESME struct {
-	clientSocket     net.Conn
-	state            *sessionState
-	sequenceNumber   int32
 	CommandFunctions map[string]func(*ESME, PDU) error
-	WindowSize       int // most requests handled at once; 0: no limit. Set it before the loop starts.
-	defaults         map[string]interface{}
-	wg               sync.WaitGroup
-	startOnce        sync.Once
-	writes           chan writeRequest                        // to runWriter, the only writer of the connection
-	pendingOps       chan func(pending map[int]chan Response) // to runPending, the owner of the waiting requests
+	WindowSize       int // most requests handled at once; 0: no limit. Set it before reading starts.
+
+	clientSocket   net.Conn
+	defaults       map[string]interface{}
+	sequenceNumber atomic.Int32
+	onClosed       func(*ESME) // called by run as its last act (the SMSC learns its connection ended)
+
+	// Events for run.
+	sends         chan pendingRequest
+	forgets       chan int
+	stateQueries  chan chan string
+	stateChanges  chan stateChange
+	startReading  chan struct{}
+	closeRequests chan struct{}
+	received      chan []byte // from pumpReads
+	readFailed    chan struct{}
+	handlerDone   chan struct{}
+	done          chan struct{} // closed when run returns
+
+	writes chan writeRequest // to pumpWrites, the only writer of the connection
+
+	// Owned by run.
+	state   string
+	pending map[int]chan Response // requests waiting for their response, by sequence_number
+	running int                   // handlers running
+	parked  *receivedRequest      // waiting for a free window slot; reading pauses meanwhile
+	reading bool
+	closing bool
 }
 
-// writeRequest asks runWriter to write one encoded PDU, and gets the Write error back.
+// pendingRequest asks run to wait for the response to sequence_number seq.
+type pendingRequest struct {
+	seq        int
+	responses  chan Response
+	registered chan error
+}
+
+type stateChange struct {
+	state   string
+	applied chan struct{}
+}
+
+type receivedRequest struct {
+	handler func(*ESME, PDU) error
+	pdu     PDU
+}
+
+// writeRequest asks pumpWrites to write one encoded PDU, and gets the Write error back.
 type writeRequest struct {
 	encoded []byte
 	written chan error
@@ -73,30 +112,51 @@ func InstantiateEsme(network, address string) (*ESME, error) {
 	return NewEsme(clientSocket), nil
 }
 
-func NewEsme(clientSocket net.Conn) (e *ESME) {
-	e = &ESME{
-		clientSocket:     clientSocket,
-		state:            newSessionState(OPEN),
+// NewEsme runs an SMPP session on conn. Register CommandFunctions before reading starts
+// (StartControlLoop, Send or SendAsync).
+func NewEsme(conn net.Conn) *ESME {
+	return newEsme(conn, nil)
+}
+
+func newEsme(conn net.Conn, onClosed func(*ESME)) *ESME {
+	e := &ESME{
 		CommandFunctions: map[string]func(*ESME, PDU) error{"enquire_link": handleEnquiryLinkPduReceived},
+		clientSocket:     conn,
 		defaults:         map[string]interface{}{},
+		onClosed:         onClosed,
+		sends:            make(chan pendingRequest),
+		forgets:          make(chan int),
+		stateQueries:     make(chan chan string),
+		stateChanges:     make(chan stateChange),
+		startReading:     make(chan struct{}),
+		closeRequests:    make(chan struct{}),
+		received:         make(chan []byte),
+		readFailed:       make(chan struct{}),
+		handlerDone:      make(chan struct{}),
+		done:             make(chan struct{}),
 		writes:           make(chan writeRequest),
-		pendingOps:       make(chan func(map[int]chan Response)),
+		state:            OPEN,
+		pending:          map[int]chan Response{},
 	}
-	e.wg.Add(2) // both stop once the ESME is CLOSED
-	go e.runWriter()
-	go e.runPending()
+	go e.run()
+	go e.pumpWrites()
 	return e
 }
 
-// Close closes the connection and waits for the ESME's goroutines to stop; every request still
-// waiting for its response then gets net.ErrClosed. Calling it again does nothing more.
+// Close closes the connection and waits until the session is over: every request still waiting
+// for its response gets net.ErrClosed, and running handlers have returned. Calling it again
+// does nothing more.
 func (e *ESME) Close() {
-	// Claim the loop's Once: a loop that's starting finishes its wg.Add before Wait below (Add
-	// racing Wait is a WaitGroup misuse), and a loop not started yet never starts.
-	e.startOnce.Do(func() {})
-	e.state.SetState(CLOSED)
-	e.clientSocket.Close()
-	e.wg.Wait()
+	e.requestClose()
+	<-e.done
+}
+
+// requestClose asks the session to close, without waiting for it.
+func (e *ESME) requestClose() {
+	select {
+	case e.closeRequests <- struct{}{}:
+	case <-e.done:
+	}
 }
 
 func (e *ESME) SetDefaults(defaults map[string]interface{}) {
@@ -107,7 +167,23 @@ func (e *ESME) SetDefaults(defaults map[string]interface{}) {
 }
 
 func (e *ESME) GetEsmeState() string {
-	return e.state.GetState()
+	reply := make(chan string, 1)
+	select {
+	case e.stateQueries <- reply:
+		return <-reply
+	case <-e.done:
+		return CLOSED
+	}
+}
+
+// setState changes the session's state; CLOSED stays CLOSED.
+func (e *ESME) setState(state string) {
+	change := stateChange{state: state, applied: make(chan struct{})}
+	select {
+	case e.stateChanges <- change:
+		<-change.applied
+	case <-e.done:
+	}
 }
 
 func (e *ESME) BindTransmitter(ctx context.Context, systemID, password string) (PDU, error) {
@@ -161,32 +237,26 @@ func (e *ESME) SendAsync(pdu PDU) (<-chan Response, error) {
 func (e *ESME) sendAsync(pdu PDU) (int, <-chan Response, error) {
 	seq := pdu.Header.SequenceNumber
 	if seq == 0 {
-		seq = int(atomic.AddInt32(&e.sequenceNumber, 1))
+		seq = int(e.sequenceNumber.Add(1))
 	}
 	encoded, err := EncodePdu(pdu.WithSequenceNumber(seq))
 	if err != nil {
 		return seq, nil, err
 	}
-
-	responses := make(chan Response, 1) // the read loop never waits on a slow caller
-	duplicate := false
-	if !e.withPending(func(pending map[int]chan Response) {
-		if duplicate = pending[seq] != nil; !duplicate {
-			pending[seq] = responses // before writing: the response can arrive before Write returns
-		}
-	}) {
+	request := pendingRequest{seq: seq, responses: make(chan Response, 1), registered: make(chan error, 1)}
+	select {
+	case e.sends <- request: // registered before writing: the response can arrive before Write returns
+	case <-e.done:
 		return seq, nil, net.ErrClosed
 	}
-	if duplicate {
-		return seq, nil, fmt.Errorf("sequence_number %d is already waiting for a response", seq)
+	if err := <-request.registered; err != nil {
+		return seq, nil, err
 	}
-
-	e.StartControlLoop()
 	if err := e.write(encoded); err != nil {
 		e.forget(seq)
 		return seq, nil, err
 	}
-	return seq, responses, nil
+	return seq, request.responses, nil
 }
 
 // Reply sends a response PDU as is, keeping its sequence_number, without waiting for anything.
@@ -198,83 +268,22 @@ func (e *ESME) Reply(pdu PDU) error {
 	return e.write(encoded)
 }
 
-// write hands an encoded PDU to runWriter and returns the Write error.
+// write hands an encoded PDU to pumpWrites and returns the Write error.
 func (e *ESME) write(encoded []byte) error {
 	w := writeRequest{encoded: encoded, written: make(chan error, 1)}
 	select {
 	case e.writes <- w:
 		return <-w.written
-	case <-e.state.Done():
+	case <-e.done:
 		return net.ErrClosed
 	}
 }
 
-// runWriter is the only writer of the connection: PDUs go out whole, one at a time.
-func (e *ESME) runWriter() {
-	defer e.wg.Done()
-	for {
-		select {
-		case w := <-e.writes:
-			_, err := e.clientSocket.Write(w.encoded)
-			w.written <- err
-		case <-e.state.Done():
-			return
-		}
-	}
-}
-
-// withPending runs f on the requests waiting for their response, inside runPending. It returns
-// false, without running f, once the ESME is closed.
-func (e *ESME) withPending(f func(pending map[int]chan Response)) bool {
-	ran := make(chan struct{})
-	select {
-	case e.pendingOps <- func(pending map[int]chan Response) { f(pending); close(ran) }:
-		<-ran
-		return true
-	case <-e.state.Done():
-		return false
-	}
-}
-
-// runPending owns the requests waiting for their response, by sequence_number: every access is
-// a function it runs, one at a time. Once the ESME is closed it fails those left with
-// net.ErrClosed and stops.
-func (e *ESME) runPending() {
-	defer e.wg.Done()
-	pending := map[int]chan Response{}
-	for {
-		select {
-		case op := <-e.pendingOps:
-			op(pending)
-		case <-e.state.Done():
-			for _, responses := range pending {
-				responses <- Response{Err: net.ErrClosed}
-			}
-			return
-		}
-	}
-}
-
 func (e *ESME) forget(seq int) {
-	e.withPending(func(pending map[int]chan Response) { delete(pending, seq) })
-}
-
-// deliverResponse hands a response (*_resp or generic_nack) to the request waiting for it, and
-// tells whether there was one.
-func (e *ESME) deliverResponse(pdu PDU) bool {
-	if !isResponse(pdu.Header.CommandId) {
-		return false
+	select {
+	case e.forgets <- seq:
+	case <-e.done:
 	}
-	var responses chan Response
-	e.withPending(func(pending map[int]chan Response) {
-		responses = pending[pdu.Header.SequenceNumber]
-		delete(pending, pdu.Header.SequenceNumber)
-	})
-	if responses == nil {
-		return false
-	}
-	responses <- Response{PDU: pdu}
-	return true
 }
 
 // setStateFromBindResponse records a bind the SMSC accepted, and errors on one it refused.
@@ -284,11 +293,11 @@ func (e *ESME) setStateFromBindResponse(pdu PDU) error {
 	}
 	switch pdu.Header.CommandId {
 	case "bind_receiver_resp":
-		e.state.SetState(BOUND_RX)
+		e.setState(BOUND_RX)
 	case "bind_transmitter_resp":
-		e.state.SetState(BOUND_TX)
+		e.setState(BOUND_TX)
 	case "bind_transceiver_resp":
-		e.state.SetState(BOUND_TRX)
+		e.setState(BOUND_TRX)
 	}
 	return nil
 }
@@ -324,65 +333,180 @@ func (e *ESME) isReceiverState() bool {
 	return (currentState == BOUND_RX || currentState == BOUND_TRX)
 }
 
-// StartControlLoop starts the loop that reads every PDU from the connection: responses go to
-// the requests waiting for them, requests to CommandFunctions. Register CommandFunctions
-// before starting it. Send and SendAsync start it when needed; starting it again does nothing.
+// StartControlLoop starts reading the connection: responses go to the requests waiting for
+// them, requests to CommandFunctions. Send and SendAsync start it when needed; starting it again
+// does nothing.
 func (e *ESME) StartControlLoop() {
-	e.startOnce.Do(func() {
-		e.wg.Add(1)
-		go e.pduDispatcher()
-	})
+	select {
+	case e.startReading <- struct{}{}:
+	case <-e.done:
+	}
 }
 
-// pduDispatcher is the only reader of the connection. Each request runs its handler in its own
-// goroutine; once WindowSize handlers are running, it stops reading until one of them finishes.
-func (e *ESME) pduDispatcher() {
-	defer e.wg.Done()
-	var window chan struct{}
-	if e.WindowSize > 0 {
-		window = make(chan struct{}, e.WindowSize)
+// run owns the session and handles its events one at a time, never blocking on I/O. Once
+// closing, it keeps going until the running handlers have returned.
+func (e *ESME) run() {
+	defer e.finish()
+	for !e.closing || e.running > 0 {
+		received := e.received
+		if e.parked != nil || e.closing {
+			received = nil // window full or closing: take no PDU, the read pump waits
+		}
+		select {
+		case request := <-e.sends:
+			e.onSend(request)
+		case seq := <-e.forgets:
+			delete(e.pending, seq)
+		case reply := <-e.stateQueries:
+			reply <- e.state
+		case change := <-e.stateChanges:
+			e.onStateChange(change)
+		case <-e.startReading:
+			e.onStartReading()
+		case <-e.closeRequests:
+			e.onClose()
+		case raw := <-received:
+			e.onPdu(raw)
+		case <-e.readFailed: // connection gone, or PDU boundaries lost
+			e.onClose()
+		case <-e.handlerDone:
+			e.onHandlerDone()
+		}
 	}
+}
+
+func (e *ESME) finish() {
+	close(e.done)
+	if e.onClosed != nil {
+		e.onClosed(e)
+	}
+}
+
+func (e *ESME) onSend(request pendingRequest) {
+	switch {
+	case e.closing:
+		request.registered <- net.ErrClosed
+	case e.pending[request.seq] != nil:
+		request.registered <- fmt.Errorf("sequence_number %d is already waiting for a response", request.seq)
+	default:
+		e.pending[request.seq] = request.responses
+		request.registered <- nil
+		e.onStartReading()
+	}
+}
+
+func (e *ESME) onStateChange(change stateChange) {
+	if !e.closing {
+		e.state = change.state
+	}
+	close(change.applied)
+}
+
+func (e *ESME) onStartReading() {
+	if !e.reading && !e.closing {
+		e.reading = true
+		go e.pumpReads()
+	}
+}
+
+// onClose closes the connection and fails the requests still waiting. run then waits for the
+// running handlers.
+func (e *ESME) onClose() {
+	if e.closing {
+		return
+	}
+	e.closing = true
+	e.state = CLOSED
+	e.clientSocket.Close()
+	for _, responses := range e.pending {
+		responses <- Response{Err: net.ErrClosed}
+	}
+	e.pending = nil
+	e.parked = nil
+}
+
+// onPdu hands a response to the request waiting for it, or starts the handler of a request, or
+// answers a request nothing here can process with a generic_nack.
+func (e *ESME) onPdu(raw []byte) {
+	pdu, err := ParsePdu(raw)
+	if errors.Is(err, errUnknownCommandID) {
+		go e.nack(ESME_RINVCMDID, int(binary.BigEndian.Uint32(raw[12:16]))) // raw is a whole PDU: the header is there
+		return
+	}
+	if err != nil {
+		if isRequest(pdu.Header.CommandId) { // known command, malformed body
+			go e.nack(ESME_RINVCMDLEN, pdu.Header.SequenceNumber)
+		}
+		return
+	}
+	if responses, waiting := e.pending[pdu.Header.SequenceNumber]; waiting && isResponse(pdu.Header.CommandId) {
+		delete(e.pending, pdu.Header.SequenceNumber)
+		responses <- Response{PDU: pdu}
+		return
+	}
+	handler, ok := e.CommandFunctions[pdu.Header.CommandId]
+	if !ok {
+		if isRequest(pdu.Header.CommandId) { // a request nothing here handles
+			go e.nack(ESME_RINVCMDID, pdu.Header.SequenceNumber)
+		}
+		return
+	}
+	request := receivedRequest{handler: handler, pdu: pdu}
+	if e.WindowSize > 0 && e.running >= e.WindowSize {
+		e.parked = &request
+		return
+	}
+	e.startHandler(request)
+}
+
+func (e *ESME) startHandler(request receivedRequest) {
+	e.running++
+	go func() {
+		if err := request.handler(e, request.pdu); err != nil {
+			ErrorSmppLogger.Printf("Error handling %s PDU: %v", request.pdu.Header.CommandId, err)
+		}
+		e.handlerDone <- struct{}{} // run is waiting for it: it doesn't stop while handlers run
+	}()
+}
+
+func (e *ESME) onHandlerDone() {
+	e.running--
+	if e.parked != nil {
+		request := *e.parked
+		e.parked = nil
+		e.startHandler(request)
+	}
+}
+
+// pumpReads reads PDUs for run until the connection fails.
+func (e *ESME) pumpReads() {
 	for {
 		raw, err := readPduBytesFromConnection(e.clientSocket, time.Time{})
-		if err != nil { // connection gone, or PDU boundaries lost: nothing more can be read reliably
-			e.state.SetState(CLOSED) // runPending then fails the requests still waiting
-			e.clientSocket.Close()
+		if err != nil {
+			select {
+			case e.readFailed <- struct{}{}:
+			case <-e.done:
+			}
 			return
 		}
-		pdu, err := ParsePdu(raw)
-		if errors.Is(err, errUnknownCommandID) {
-			e.nack(ESME_RINVCMDID, int(binary.BigEndian.Uint32(raw[12:16]))) // raw is a whole PDU: the header is there
-			continue
+		select {
+		case e.received <- raw:
+		case <-e.done:
+			return
 		}
-		if err != nil {
-			if isRequest(pdu.Header.CommandId) { // known command, malformed body
-				e.nack(ESME_RINVCMDLEN, pdu.Header.SequenceNumber)
-			}
-			continue
+	}
+}
+
+// pumpWrites is the only writer of the connection: PDUs go out whole, one at a time.
+func (e *ESME) pumpWrites() {
+	for {
+		select {
+		case w := <-e.writes:
+			_, err := e.clientSocket.Write(w.encoded)
+			w.written <- err
+		case <-e.done:
+			return
 		}
-		if e.deliverResponse(pdu) {
-			continue
-		}
-		handler, ok := e.CommandFunctions[pdu.Header.CommandId]
-		if !ok {
-			if isRequest(pdu.Header.CommandId) { // a request nothing here handles
-				e.nack(ESME_RINVCMDID, pdu.Header.SequenceNumber)
-			}
-			continue
-		}
-		if window != nil {
-			window <- struct{}{} // waits while the window is full
-		}
-		e.wg.Add(1) // Close waits for running handlers too
-		go func() {
-			defer e.wg.Done()
-			if window != nil {
-				defer func() { <-window }()
-			}
-			if err := handler(e, pdu); err != nil {
-				ErrorSmppLogger.Printf("Error handling %s PDU: %v", pdu.Header.CommandId, err)
-			}
-		}()
 	}
 }
 

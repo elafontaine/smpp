@@ -118,8 +118,8 @@ func TestReactionFromBindedEsmeAsSpecifiedBindState(t *testing.T) {
 			smsc, Esme := connectWithRunningSmsc(t)
 			defer CloseAndAssertClean(smsc, Esme, t)
 
-			Esme.state.SetState(tt.args.bind_state)
-			smsc.Connections()[0].state.SetState(tt.args.bind_state)
+			Esme.setState(tt.args.bind_state)
+			smsc.Connections()[0].setState(tt.args.bind_state)
 			actualPdu, LastError := Esme.Send(contextWithin(t, time.Second), tt.args.send_pdu)
 			if LastError != nil {
 				t.Fatalf("Failed to get an answer : %v", LastError)

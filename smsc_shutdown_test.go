@@ -10,12 +10,11 @@ import (
 // smscWithABusyConnection gives an SMSC with n connections, accepted by hand. The first
 // connection's SMSC side is in the middle of handling an enquire_link: its handler doesn't
 // return until release is called.
-func smscWithABusyConnection(t *testing.T, n int) (smsc *SMSC, smscSides []*ESME, release func()) {
+func smscWithABusyConnection(t *testing.T, n int) (smsc *SMSC, clients, smscSides []*ESME, release func()) {
 	smsc = newSmsc(t)
 	handling, released := make(chan struct{}), make(chan struct{})
 	release = sync.OnceFunc(func() { close(released) })
 	t.Cleanup(release) // a failing test must not leave the handler stuck
-	var clients []*ESME
 	for i := 0; i < n; i++ {
 		client, err := InstantiateEsme(connType, smsc.listener.Addr().String())
 		if err != nil {
@@ -41,13 +40,16 @@ func smscWithABusyConnection(t *testing.T, n int) (smsc *SMSC, smscSides []*ESME
 		t.Fatalf("SendAsync() error = %v", err)
 	}
 	<-handling
-	return smsc, smscSides, release
+	return smsc, clients, smscSides, release
 }
 
-// Nothing the SMSC started may outlive it.
-func assertNothingLeftRunning(t *testing.T) {
+// Nothing the SMSC started may outlive it. The test's own clients are closed first.
+func assertNothingLeftRunning(t *testing.T, clients []*ESME) {
 	t.Helper()
-	for _, frame := range []string{"(*SMSC).watchConnection(", "(*SMSC).smscControlLoop(", "(*ESME).pduDispatcher("} {
+	for _, client := range clients {
+		client.Close()
+	}
+	for _, frame := range []string{"(*SMSC).run(", "(*SMSC).pumpAccepts(", "(*ESME).run(", "(*ESME).pumpReads(", "(*ESME).pumpWrites("} {
 		if !eventually(func() bool { return goroutinesIn(frame) == 0 }) {
 			t.Errorf("%d goroutines still in %s", goroutinesIn(frame), frame)
 		}
@@ -57,7 +59,7 @@ func assertNothingLeftRunning(t *testing.T) {
 // Shutdown is for when everything must be gone: it returns once every connection is closed,
 // including one busy in a handler, and it closes them all at once, not one after the other.
 func TestShutdownWaitsForEveryConnection(t *testing.T) {
-	smsc, smscSides, release := smscWithABusyConnection(t, 2)
+	smsc, clients, smscSides, release := smscWithABusyConnection(t, 2)
 
 	shutdown := make(chan error, 1)
 	go func() {
@@ -89,13 +91,13 @@ func TestShutdownWaitsForEveryConnection(t *testing.T) {
 		}
 	}
 	AssertSmscIsClosedAndClean(smsc, t)
-	assertNothingLeftRunning(t)
+	assertNothingLeftRunning(t, clients)
 }
 
 // Close is for when the SMSC's resources aren't wanted any more: it returns right away, even
 // with a handler still running. Shutdown then waits for the rest, which must leave no leak.
 func TestCloseReturnsWithoutWaiting(t *testing.T) {
-	smsc, smscSides, release := smscWithABusyConnection(t, 1)
+	smsc, clients, smscSides, release := smscWithABusyConnection(t, 1)
 
 	closed := make(chan struct{})
 	go func() {
@@ -118,5 +120,5 @@ func TestCloseReturnsWithoutWaiting(t *testing.T) {
 		t.Errorf("connection state = %s, want CLOSED", state)
 	}
 	AssertSmscIsClosedAndClean(smsc, t)
-	assertNothingLeftRunning(t)
+	assertNothingLeftRunning(t, clients)
 }

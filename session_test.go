@@ -89,10 +89,9 @@ func TestSendGivesUpWhenTheContextEnds(t *testing.T) {
 	if _, err := esme.Send(ctx, NewEnquireLink()); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Send() error = %v, want context.DeadlineExceeded", err)
 	}
-	waiting := -1
-	esme.withPending(func(pending map[int]chan Response) { waiting = len(pending) })
-	if waiting != 0 {
-		t.Errorf("%d requests still waiting after Send gave up, want 0", waiting)
+	// Given up means no longer waiting: the same sequence_number can be used again.
+	if _, err := esme.SendAsync(NewEnquireLink().WithSequenceNumber(1)); err != nil {
+		t.Errorf("sequence_number 1 still waiting after Send gave up: %v", err)
 	}
 }
 
@@ -180,18 +179,3 @@ func TestCloseWhileTheReadLoopStarts(t *testing.T) {
 	<-started
 }
 
-// A request can be waiting while no read loop runs; Close must still fail it.
-func TestCloseFailsRequestsWaitingWithoutAReadLoop(t *testing.T) {
-	client, server := net.Pipe()
-	defer server.Close()
-	esme := NewEsme(client)
-	responses := make(chan Response, 1)
-	esme.withPending(func(pending map[int]chan Response) {
-		pending[1] = responses // as sendAsync leaves it just before starting the loop
-	})
-
-	esme.Close()
-	if r := receiveWithin(t, responses, time.Second); !errors.Is(r.Err, net.ErrClosed) {
-		t.Errorf("waiting request got err = %v, want net.ErrClosed", r.Err)
-	}
-}

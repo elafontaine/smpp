@@ -139,7 +139,7 @@ func TestSmscControlLoopStopsOnClose(t *testing.T) {
 }
 
 func controlLoopsRunning() int {
-	return goroutinesIn("(*SMSC).smscControlLoop(")
+	return goroutinesIn("(*SMSC).run(")
 }
 
 // goroutinesIn counts the goroutines whose stack contains frame. The buffer grows until the
@@ -163,8 +163,8 @@ func TestConnectionCleanupDoesntWaitForAClosedSmsc(t *testing.T) {
 		esme.Close() // the SMSC side notices and starts its cleanup...
 		smsc.Close() // ...while the SMSC closes
 	}
-	if !eventually(func() bool { return goroutinesIn("(*SMSC).removeEsme(") == 0 }) {
-		t.Errorf("%d connection cleanups stuck waiting for a closed SMSC", goroutinesIn("(*SMSC).removeEsme("))
+	if !eventually(func() bool { return goroutinesIn("(*SMSC).reportClosed(") == 0 }) {
+		t.Errorf("%d connection cleanups stuck waiting for a closed SMSC", goroutinesIn("(*SMSC).reportClosed("))
 	}
 }
 
