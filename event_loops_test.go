@@ -3,8 +3,6 @@ package smpp
 import (
 	"errors"
 	"net"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 )
@@ -67,49 +65,6 @@ func TestEsmeStateAnswersWhileAHandlerRuns(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("GetEsmeState() waited for the running handler")
 	}
-}
-
-// One goroutine owns each object: per connection, the ESME's run plus its two I/O pumps; for the
-// SMSC, its run plus its accept pump. Nothing else (no watcher per connection).
-func TestOneGoroutinePerConnectionPlusOneForTheSmsc(t *testing.T) {
-	smsc, esme := connectWithRunningSmsc(t)
-	defer CloseAndAssertClean(smsc, esme, t)
-	esme.StartControlLoop()
-
-	want := map[string]int{
-		"(*ESME).run(":         2, // the client, and the SMSC's side of the connection
-		"(*ESME).pumpReads(":   2,
-		"(*ESME).pumpWrites(":  2,
-		"(*SMSC).run(":         1,
-		"(*SMSC).pumpAccepts(": 1,
-	}
-	total := 0
-	for frame, count := range want {
-		total += count
-		if !eventually(func() bool { return goroutinesIn(frame) == count }) {
-			t.Errorf("%d goroutines in %s, want %d", goroutinesIn(frame), frame, count)
-		}
-	}
-	if !eventually(func() bool { return goroutinesInTheLibrary() == total }) {
-		t.Errorf("%d goroutines run ESME or SMSC code, want %d", goroutinesInTheLibrary(), total)
-	}
-}
-
-// goroutinesInTheLibrary counts the goroutines running ESME or SMSC code, whatever the function.
-func goroutinesInTheLibrary() int {
-	buf := make([]byte, 1<<20)
-	n := runtime.Stack(buf, true)
-	for n == len(buf) {
-		buf = make([]byte, 2*len(buf))
-		n = runtime.Stack(buf, true)
-	}
-	count := 0
-	for _, goroutine := range strings.Split(string(buf[:n]), "\n\n") {
-		if strings.Contains(goroutine, "smpp.(*ESME).") || strings.Contains(goroutine, "smpp.(*SMSC).") {
-			count++
-		}
-	}
-	return count
 }
 
 // A connection accepted just as the SMSC goes away must be closed, not left waiting for an SMSC

@@ -11,12 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// A sequence_number filled in before sending is sent as is, not replaced by the session's next one.
 func TestSendingBackToBackPduIsInterpretedOkOnSmsc(t *testing.T) {
 	smsc, Esme, smsc_connection := connectWithSilentSmsc(t)
 	defer CloseAndAssertClean(smsc, Esme, t)
 
-	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(1)
-	secondPdu := NewSubmitSM().WithSequenceNumber(2)
+	firstPdu := NewBindTransmitter().WithSystemId(validSystemID).WithPassword(validPassword).WithSequenceNumber(42)
+	secondPdu := NewSubmitSM().WithSequenceNumber(7)
 	_, LastError1 := Esme.SendAsync(firstPdu)
 	_, LastError2 := Esme.SendAsync(secondPdu)
 	if LastError1 != nil || LastError2 != nil {
@@ -62,29 +63,29 @@ func TestAssigningEsmeSomeDefaultsWithBinding(t *testing.T) {
 	}
 }
 
+// Requests sent from many goroutines at once each get their own sequence_number, 1 to n.
 func TestSendingPduIncreaseSequenceNumberAcrossGoroutines(t *testing.T) {
 	smsc, esme := connectWithRunningSmsc(t)
 	defer CloseAndAssertClean(smsc, esme, t)
 
-	all_seq_numbers := make(chan int)
-	seq_numbers_expected := []int{}
-	seq_numbers_actual := []int{}
-	iterations := 100
-	for i := 0; i <= iterations; i++ {
+	const requests = 100
+	sent := make(chan int)
+	for i := 0; i < requests; i++ {
 		go func() {
-			resp, err := esme.Send(contextWithin(t, 5*time.Second), NewEnquireLink())
+			seq, _, err := esme.sendAsync(NewEnquireLink())
 			if err != nil {
 				t.Errorf("Issue sending enquire_link: %v", err)
 			}
-			all_seq_numbers <- resp.Header.SequenceNumber
+			sent <- seq
 		}()
 	}
-	for i := 0; i <= iterations; i++ {
-		seq_numbers_expected = append(seq_numbers_expected, i+1)
-		seq_numbers_actual = append(seq_numbers_actual, <-all_seq_numbers)
+	expected, actual := []int{}, []int{}
+	for i := 0; i < requests; i++ {
+		expected = append(expected, i+1)
+		actual = append(actual, <-sent)
 	}
 
-	assert.ElementsMatch(t, seq_numbers_actual, seq_numbers_expected)
+	assert.ElementsMatch(t, expected, actual)
 }
 
 func TestCanRegisterCustomFunctionWithinEsme(t *testing.T) {

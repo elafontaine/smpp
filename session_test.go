@@ -178,4 +178,3 @@ func TestCloseWhileTheReadLoopStarts(t *testing.T) {
 	esme.Close()
 	<-started
 }
-
