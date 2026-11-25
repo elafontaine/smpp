@@ -17,48 +17,25 @@ type Header struct {
 	SequenceNumber int
 }
 
-func parseHeader(bytes []byte) (header Header, err error) {
+func parseHeader(bytes []byte) (Header, error) {
 	length, err := verifyLength(bytes)
 	if err != nil {
-		return
+		return Header{}, err
 	}
-	commandId, err := extractCommandID(bytes)
-	if err != nil {
-		return
+	commandId, known := commandIdByHex[hex.EncodeToString(bytes[4:8])]
+	if !known {
+		return Header{}, fmt.Errorf("%w %s", errUnknownCommandID, hex.EncodeToString(bytes[4:8]))
 	}
-	commandStatus, err := extractCommandStatus(bytes)
-	if err != nil {
-		return
+	commandStatus, known := commandStatusByHex[hex.EncodeToString(bytes[8:12])]
+	if !known {
+		return Header{}, fmt.Errorf("unknown command status %s", hex.EncodeToString(bytes[8:12]))
 	}
-	sequenceNumber := extractSequenceNumber(bytes)
-	header = Header{
+	return Header{
 		CommandLength:  length,
-		CommandId:      commandId,
-		CommandStatus:  commandStatus,
-		SequenceNumber: sequenceNumber,
-	}
-	return
-}
-
-func extractSequenceNumber(bytes []byte) (sequenceNumber int) {
-	sequenceNumber = int(binary.BigEndian.Uint32(bytes[12:16]))
-	return
-}
-
-func extractCommandStatus(bytes []byte) (string, error) {
-	commandStatus := hex.EncodeToString(bytes[8:12])
-	if value, ok := commandStatusByHex[commandStatus]; ok {
-		return value["name"], nil
-	}
-	return commandStatus, fmt.Errorf("unknown command status %s", commandStatus)
-}
-
-func extractCommandID(bytes []byte) (string, error) {
-	commandId := hex.EncodeToString(bytes[4:8])
-	if value, ok := commandIdByHex[commandId]; ok {
-		return value["name"], nil
-	}
-	return "", fmt.Errorf("%w %s", errUnknownCommandID, commandId)
+		CommandId:      commandId["name"],
+		CommandStatus:  commandStatus["name"],
+		SequenceNumber: int(binary.BigEndian.Uint32(bytes[12:16])),
+	}, nil
 }
 
 func verifyLength(fixture []byte) (int, error) {

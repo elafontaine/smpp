@@ -6,31 +6,18 @@ type PDU struct {
 	Body   Body
 }
 
-// Decoding Function, only ParsePdu should be public
-func ParsePdu(bytes []byte) (pdu PDU, err error) {
+// ParsePdu decodes one whole PDU.
+func ParsePdu(bytes []byte) (PDU, error) {
 	header, err := parseHeader(bytes)
 	if err != nil {
-		return
+		return PDU{}, err
 	}
 	body, err := parseBody(header, bytes)
-	pdu = PDU{Header: header, Body: body}
-	return
+	return PDU{Header: header, Body: body}, err
 }
 
-func (p *PDU) Write(b []byte) (n int, err error) {
-	pdu, err := ParsePdu(b)
-	if err != nil {
-		return
-	}
-	
-	p.Body = pdu.Body
-	p.Header = pdu.Header
-	n = p.Header.CommandLength
-	return
-}
-
-// Encoding functions, only EncodePdu should be public
-func EncodePdu(obj PDU) (pdu_bytes []byte, err error) {
+// EncodePdu encodes a PDU, computing command_length.
+func EncodePdu(obj PDU) ([]byte, error) {
 	bodyBytes, err := encodeBody(obj)
 	if err != nil {
 		return nil, err
@@ -39,15 +26,5 @@ func EncodePdu(obj PDU) (pdu_bytes []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	pdu_bytes = append(headerBytes, bodyBytes...)
-	return pdu_bytes, err
-}
-
-func (p *PDU) Read(b []byte) (n int, err error) {
-	pdu, err := EncodePdu(*p)
-	if err != nil {
-		return
-	}
-	n = copy(b, pdu)
-	return
+	return append(headerBytes, bodyBytes...), nil
 }

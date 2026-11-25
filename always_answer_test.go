@@ -11,6 +11,7 @@ import (
 // and the connection stays up.
 func TestUnprocessableRequestsAreAnsweredWithGenericNack(t *testing.T) {
 	dataSm, _ := EncodePdu(NewDataSM().WithSequenceNumber(9))
+	deliverSm, _ := EncodePdu(NewDeliverSM().WithSequenceNumber(11))
 	tests := []struct {
 		name       string
 		pdu        []byte
@@ -19,6 +20,7 @@ func TestUnprocessableRequestsAreAnsweredWithGenericNack(t *testing.T) {
 	}{
 		{"known request with a malformed body", mustHex("00000011" + "00000002" + "00000000" + "00000007" + "78"), ESME_RINVCMDLEN, 7},
 		{"known request with no handler", dataSm, ESME_RINVCMDID, 9},
+		{"deliver_sm to a plain ESME: no simulator handler", deliverSm, ESME_RINVCMDID, 11},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

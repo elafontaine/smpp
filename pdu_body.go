@@ -4,15 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 )
-type Error string
-func (e Error) Error() string {
-	return string(e)
-}
 
-const missingHeaderError = Error("PDU object malformed, missing headers")
+var missingHeaderError = errors.New("PDU object malformed, missing headers")
 
 // Expose Data Structure to enable people to manipulate it.
 // We don't care if they don't respect SMPP protocols :)
@@ -173,10 +170,10 @@ func encodeBody(obj PDU) ([]byte, error) {
 	return append(bodyBytes, optionalParamsBytes...), nil
 }
 
-func encodeOptionalParameters(obj PDU) (optionalParamsBytes []byte, err error) {
+func encodeOptionalParameters(obj PDU) ([]byte, error) {
+	var optionalParamsBytes []byte
 	for _, optionalParam := range obj.Body.OptionalParameters {
-		var specificOptionalParamsBytes []byte
-		specificOptionalParamsBytes, err = encodeSpecificOptionalParameter(optionalParam)
+		specificOptionalParamsBytes, err := encodeSpecificOptionalParameter(optionalParam)
 		if err != nil {
 			return nil, err
 		}

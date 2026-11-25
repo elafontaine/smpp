@@ -77,12 +77,11 @@ func NewEsme(clientSocket net.Conn) (e *ESME) {
 	e = &ESME{
 		clientSocket:     clientSocket,
 		state:            newSessionState(OPEN),
-		CommandFunctions: map[string]func(*ESME, PDU) error{},
+		CommandFunctions: map[string]func(*ESME, PDU) error{"enquire_link": handleEnquiryLinkPduReceived},
 		defaults:         map[string]interface{}{},
 		writes:           make(chan writeRequest),
 		pendingOps:       make(chan func(map[int]chan Response)),
 	}
-	registerStandardBehaviours(e)
 	e.wg.Add(2) // both stop once the ESME is CLOSED
 	go e.runWriter()
 	go e.runPending()
@@ -133,7 +132,7 @@ func (e *ESME) bindWithSmsc(ctx context.Context, pdu PDU) (PDU, error) {
 	if err != nil {
 		return resp, err
 	}
-	return resp, setESMEStateFromSMSCResponse(&resp, e)
+	return resp, e.setStateFromBindResponse(resp)
 }
 
 // Send sends a request and waits for its response, until ctx ends. A sequence_number of 0 is
@@ -278,22 +277,20 @@ func (e *ESME) deliverResponse(pdu PDU) bool {
 	return true
 }
 
-func setESMEStateFromSMSCResponse(pdu *PDU, Esme *ESME) (err error) {
-	if pdu.Header.CommandStatus == ESME_ROK {
-		switch pdu.Header.CommandId {
-		case "bind_receiver_resp":
-			Esme.state.SetState(BOUND_RX)
-
-		case "bind_transmitter_resp":
-			Esme.state.SetState(BOUND_TX)
-
-		case "bind_transceiver_resp":
-			Esme.state.SetState(BOUND_TRX)
-		}
-	} else {
-		err = fmt.Errorf("The answer received wasn't OK or not the type we expected : %v", pdu)
+// setStateFromBindResponse records a bind the SMSC accepted, and errors on one it refused.
+func (e *ESME) setStateFromBindResponse(pdu PDU) error {
+	if pdu.Header.CommandStatus != ESME_ROK {
+		return fmt.Errorf("The answer received wasn't OK or not the type we expected : %v", &pdu)
 	}
-	return err
+	switch pdu.Header.CommandId {
+	case "bind_receiver_resp":
+		e.state.SetState(BOUND_RX)
+	case "bind_transmitter_resp":
+		e.state.SetState(BOUND_TX)
+	case "bind_transceiver_resp":
+		e.state.SetState(BOUND_TRX)
+	}
+	return nil
 }
 
 // readPduBytesFromConnection reads one whole PDU. A zero deadline waits as long as needed.
@@ -325,12 +322,6 @@ func (e *ESME) isTransmitterState() bool {
 func (e *ESME) isReceiverState() bool {
 	currentState := e.GetEsmeState()
 	return (currentState == BOUND_RX || currentState == BOUND_TRX)
-}
-
-func registerStandardBehaviours(e *ESME) {
-	e.CommandFunctions["enquire_link"] = handleEnquiryLinkPduReceived
-	e.CommandFunctions["submit_sm"] = handleSubmitSmPduReceived
-	e.CommandFunctions["deliver_sm"] = handleDeliverSmPduReceived
 }
 
 // StartControlLoop starts the loop that reads every PDU from the connection: responses go to

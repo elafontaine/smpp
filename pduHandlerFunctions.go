@@ -20,7 +20,7 @@ func (s *SMSC) handleBindOperation(e *ESME, receivedPdu PDU) error {
 		ResponsePdu.Header.CommandStatus = ESME_RBINDFAIL
 		InfoSmppLogger.Printf("We didn't received expected credentials")
 	}
-	if err := setESMEStateFromSMSCResponse(&ResponsePdu, e); err != nil {
+	if err := e.setStateFromBindResponse(ResponsePdu); err != nil {
 		InfoSmppLogger.Printf("Couldn't set the bind state on request!")
 	}
 	return e.Reply(ResponsePdu)

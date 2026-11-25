@@ -1,121 +1,30 @@
 package smpp
 
-func defaultHeader() Header {
-	return Header{
-		CommandLength:  0,
-		CommandId:      "generic_nack",
-		CommandStatus:  ESME_ROK,
-		SequenceNumber: 0,
-	}
+// newPdu is a PDU of command commandId with status ESME_ROK and sequence_number 0.
+func newPdu(commandId string, body Body) PDU {
+	return PDU{Header: Header{CommandId: commandId, CommandStatus: ESME_ROK}, Body: body}
+}
+
+// emptyBody is the body of a PDU whose fields are set later, if any (most responses).
+func emptyBody() Body {
+	return Body{MandatoryParameter: map[string]interface{}{}}
 }
 
 /* Sane Defaults objects */
-func NewGenericNack() PDU {
-	header := defaultHeader()
-	return PDU{Header: header}
-}
-
-func NewEnquireLink() PDU {
-	header := defaultHeader()
-	header.CommandId = "enquire_link"
-	return PDU{Header: header}
-}
-
-func NewEnquireLinkResp() PDU {
-	header := defaultHeader()
-	header.CommandId = "enquire_link_resp"
-	body := Body{
-		MandatoryParameter: map[string]interface{}{},
-	}
-	return PDU{Header: header, Body: body}
-}
-
-func NewBindTransmitter() PDU {
-	header := defaultHeader()
-	header.CommandId = "bind_transmitter"
-	body := defaultBindBody()
-	return PDU{Header: header, Body: body}
-}
-
-func NewBindReceiver() PDU {
-	header := defaultHeader()
-	header.CommandId = "bind_receiver"
-	body := defaultBindBody()
-	return PDU{Header: header, Body: body}
-}
-
-func NewBindTransceiver() PDU {
-	header := defaultHeader()
-	header.CommandId = "bind_transceiver"
-	body := defaultBindBody()
-	return PDU{Header: header, Body: body}
-}
-
-func NewBindTransmitterResp() PDU {
-	header := defaultHeader()
-	header.CommandId = "bind_transmitter_resp"
-	body := Body{
-		MandatoryParameter: map[string]interface{}{},
-	}
-	return PDU{Header: header, Body: body}
-}
-
-func NewBindTransceiverResp() PDU {
-	header := defaultHeader()
-	header.CommandId = "bind_transceiver_resp"
-	body := Body{
-		MandatoryParameter: map[string]interface{}{},
-	}
-	return PDU{Header: header, Body: body}
-}
-
-func NewBindReceiverResp() PDU {
-	header := defaultHeader()
-	header.CommandId = "bind_receiver_resp"
-	body := Body{
-		MandatoryParameter: map[string]interface{}{},
-	}
-	return PDU{Header: header, Body: body}
-}
-
-func NewSubmitSM() PDU {
-	header := defaultHeader()
-	header.CommandId = "submit_sm"
-	body := defaultMessageBody()
-	return PDU{Header: header, Body: body}
-}
-
-func NewSubmitSMResp() PDU {
-	header := defaultHeader()
-	header.CommandId = "submit_sm_resp"
-	body := Body{
-		MandatoryParameter: map[string]interface{}{},
-	}
-	return PDU{Header: header, Body: body}
-}
-
-func NewDeliverSMResp() PDU {
-	header := defaultHeader()
-	header.CommandId = "deliver_sm_resp"
-	body := Body{
-		MandatoryParameter: map[string]interface{}{},
-	}
-	return PDU{Header: header, Body: body}
-}
-
-func NewDeliverSM() PDU {
-	header := defaultHeader()
-	header.CommandId = "deliver_sm"
-	body := defaultMessageBody()
-	return PDU{Header: header, Body: body}
-}
-
-func NewDataSM() PDU {
-	header := defaultHeader()
-	header.CommandId = "data_sm"
-	body := defaultMessageBody()
-	return PDU{Header: header, Body: body}
-}
+func NewGenericNack() PDU         { return newPdu("generic_nack", Body{}) }
+func NewEnquireLink() PDU         { return newPdu("enquire_link", Body{}) }
+func NewEnquireLinkResp() PDU     { return newPdu("enquire_link_resp", emptyBody()) }
+func NewBindTransmitter() PDU     { return newPdu("bind_transmitter", defaultBindBody()) }
+func NewBindReceiver() PDU        { return newPdu("bind_receiver", defaultBindBody()) }
+func NewBindTransceiver() PDU     { return newPdu("bind_transceiver", defaultBindBody()) }
+func NewBindTransmitterResp() PDU { return newPdu("bind_transmitter_resp", emptyBody()) }
+func NewBindTransceiverResp() PDU { return newPdu("bind_transceiver_resp", emptyBody()) }
+func NewBindReceiverResp() PDU    { return newPdu("bind_receiver_resp", emptyBody()) }
+func NewSubmitSM() PDU            { return newPdu("submit_sm", defaultMessageBody()) }
+func NewSubmitSMResp() PDU        { return newPdu("submit_sm_resp", emptyBody()) }
+func NewDeliverSMResp() PDU       { return newPdu("deliver_sm_resp", emptyBody()) }
+func NewDeliverSM() PDU           { return newPdu("deliver_sm", defaultMessageBody()) }
+func NewDataSM() PDU              { return newPdu("data_sm", defaultMessageBody()) }
 
 func defaultBindBody() Body {
 	body := Body{

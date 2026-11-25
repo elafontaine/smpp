@@ -83,7 +83,9 @@ func (smsc *SMSC) createAndAppendNewEsme(serverConnectionSocket net.Conn) {
 	e.CommandFunctions["bind_receiver"] = smsc.handleBindOperation
 	e.CommandFunctions["bind_transceiver"] = smsc.handleBindOperation
 	e.CommandFunctions["bind_transmitter"] = smsc.handleBindOperation
-	smsc.connections.Add(1) // in the control loop: Shutdown waits only once the loop has returned
+	e.CommandFunctions["submit_sm"] = handleSubmitSmPduReceived   // simulator answer
+	e.CommandFunctions["deliver_sm"] = handleDeliverSmPduReceived // refused: an SMSC doesn't take deliver_sm
+	smsc.connections.Add(1)                                       // in the control loop: Shutdown waits only once the loop has returned
 	go smsc.watchConnection(e)
 	appendNewEsmeToSMSC(smsc, e)
 	smsc.newEsmes <- e
